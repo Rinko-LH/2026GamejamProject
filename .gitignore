@@ -92,5 +92,9 @@ steam_appid.txt
 Assets/Resources/TaptapToken.txt*
 Assets/Resources/TaptapPublicKey.txt*
 
+# WorkBuddy 项目配置：mcp.json 需要进版本库（队友靠它一键接入），其余本地内容不进
+.workbuddy/*
+!.workbuddy/mcp.json
+
 # WorkBuddy 本地记忆目录，不进版本库
-.workbuddy/
+.workbuddy/memory/
