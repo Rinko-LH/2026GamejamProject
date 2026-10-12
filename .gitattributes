@@ -1,0 +1,72 @@
+###############################################################################
+# Git LFS - 核心资源追踪
+###############################################################################
+
+# 图像与纹理
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.bmp filter=lfs diff=lfs merge=lfs -text
+*.exr filter=lfs diff=lfs merge=lfs -text
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.hdr filter=lfs diff=lfs merge=lfs -text
+
+# 音频与视频
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+
+# 模型与 3D 资产
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.max filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+
+# 字体
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+
+# 编译出的库与二进制文件 (根据你刚才 steam_api64.dll 的报错，可选是否追踪)
+# *.dll filter=lfs diff=lfs merge=lfs -text
+# *.so filter=lfs diff=lfs merge=lfs -text
+# *.bundle filter=lfs diff=lfs merge=lfs -text
+
+###############################################################################
+# Unity 文本格式对齐 (避免 Windows/Mac 协作时的换行符地狱)
+###############################################################################
+
+*.cs diff=csharp text
+*.cginc text
+*.shader text
+*.mat text
+*.anim text
+*.unity text
+*.prefab text
+*.asset text
+*.meta text
+*.controller text
+*.overrideController text
+*.physicMaterial text
+*.physicsMaterial2D text
+*.playable text
+*.mask text
+*.terrainlayer text
+*.spriteatlas text
+*.inputactions text
+
+###############################################################################
+# 强制 LF 换行符 (Unity 对 LF 兼容性最好，避免由于 CRLF 导致的没必要的 meta 冲突)
+###############################################################################
+
+*.cs text eol=lf
+*.shader text eol=lf
+*.cginc text eol=lf
+*.asmdef text eol=lf
+*.meta text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.asset text eol=lf
