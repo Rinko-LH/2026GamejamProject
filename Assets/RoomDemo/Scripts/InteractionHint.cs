@@ -5,8 +5,9 @@ namespace RoomDemo
     /// <summary>
     /// 交互提示：主角走进交互范围时，让可交互物高亮 + 显示一个上浮的提示块。
     ///
-    /// 色块占位期用不着正式 UI，但"能按 E 了"必须有反馈——
-    /// 否则玩家站在物品前按 E 没反应，会以为是坏了。
+    /// 现在美术资源改为手绘透视，本脚本<b>不再程序化生成任何图形</b>：
+    /// markerSprite 必须由外部（场景里的手绘图或画板玩法装配）指定，
+    /// 没指定就只做呼吸高亮、不生成提示块，绝不退回程序化方块。
     /// </summary>
     public class InteractionHint : MonoBehaviour
     {
@@ -22,18 +23,24 @@ namespace RoomDemo
 
         [Header("提示块")]
         public bool showMarker = true;
+        [Tooltip("手绘提示图。留空则不生成提示块（仍保留呼吸高亮）。")]
         public Sprite markerSprite;
         public Color markerColor = new Color(1f, 0.92f, 0.55f, 1f);
         public float markerBobHeight = 0.12f;
+
+        [Header("层级")]
+        [Tooltip("提示块的绘制层，需大于场景中其他手绘图，否则会被家具挡住。")]
+        public int markerSortingOrder = 15200;
 
         SpriteRenderer _markerSr;
         float _phase;
 
         void Awake()
         {
-            if (markerSprite == null) markerSprite = RoomShapes.Rect;
-
-            if (showMarker)
+            // 只有明确给了手绘提示图才生成提示块。
+            // 以前这里会退回程序化的 RoomShapes.Rect，那是"零美术资源占位期"的做法，
+            // 现在美术走手绘透视，程序化方块不再参与渲染。
+            if (showMarker && markerSprite != null)
             {
                 var go = new GameObject("HintMarker");
                 go.transform.SetParent(transform, false);
@@ -43,7 +50,7 @@ namespace RoomDemo
                 _markerSr = go.AddComponent<SpriteRenderer>();
                 _markerSr.sprite = markerSprite;
                 _markerSr.color = markerColor;
-                _markerSr.sortingOrder = RoomView.LayerPropsMax + 200;
+                _markerSr.sortingOrder = markerSortingOrder;
                 _markerSr.enabled = false;
             }
 

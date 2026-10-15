@@ -16,7 +16,8 @@ namespace RoomDemo
     public class DrawingBoardInteract : MonoBehaviour
     {
         [Header("引用")]
-        public RoomPlayer player;
+        [Tooltip("主角。只用到它的位置和显隐，不要求特定控制器。")]
+        public Transform player;
         [Tooltip("三块画板，数组顺序即画作序号 1~3")]
         public PaintingBoard[] boards;
         [Tooltip("房间里桌上那块画板色块，进特写时隐藏")]
@@ -187,7 +188,7 @@ namespace RoomDemo
         bool IsNearBoard()
         {
             if (player == null) return false;
-            return Mathf.Abs(player.transform.position.x - transform.position.x) < interactRange;
+            return Mathf.Abs(player.position.x - transform.position.x) < interactRange;
         }
 
         /// <summary>

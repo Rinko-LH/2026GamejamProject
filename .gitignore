@@ -83,7 +83,8 @@ crashlytics-build.properties
 # Ignore SVN repository.
 /Assets/SVN_Repository/*
 
-Assets/Scenes/TestScene.unity
+# 注意：Assets/Scenes/TestScene.unity 曾经被忽略，但画板玩法（三画板 + 计时条）
+# 全部装配在这个场景里，不提交队友就拉不到这套结构，因此已取消忽略。
 
 # Steamworks SDK 本地开发用,绝对不能提交也不能进发布包。
 steam_appid.txt
@@ -98,3 +99,5 @@ Assets/Resources/TaptapPublicKey.txt*
 
 # WorkBuddy 本地记忆目录，不进版本库
 .workbuddy/memory/
+
+Assets/vHierarchy

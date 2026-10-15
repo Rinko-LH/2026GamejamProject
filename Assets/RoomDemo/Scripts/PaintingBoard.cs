@@ -61,14 +61,24 @@ namespace RoomDemo
         }
 
         /// <summary>
-        /// 自愈：场景反序列化后，RoomShapes 里运行时生成的精灵引用会丢
+        /// 自愈：场景反序列化后，运行时构建的精灵引用会丢
         /// （没有资产 fileID），画布绑定同理。每次启动把该挂的挂上。
+        ///
+        /// 注意：sprite 为空时<b>不</b>再退回程序化色块——美术已改为手绘透视图，
+        /// RoomShapes 那套运行时烘焙精灵已删除。外框 / 计时条的图由美术提供，
+        /// 这里只在为空时给一次警告，方便排查"看不见"。
+        /// 画布的 sprite 则由 <see cref="DrawingCanvas.Bind"/> 用画布纹理重建，
+        /// 不依赖美术资源，必须保留。
         /// </summary>
         public void EnsureVisuals()
         {
-            if (frame != null && frame.sprite == null) frame.sprite = RoomShapes.Rect;
-            if (barBackground != null && barBackground.sprite == null) barBackground.sprite = RoomShapes.Rect;
-            if (barFill != null && barFill.sprite == null) barFill.sprite = RoomShapes.Bar;
+            if (frame != null && frame.sprite == null)
+                Debug.LogWarning($"[画板] 第 {boardIndex} 块的外框没有精灵，美术图拖到 Frame 的 Sprite 槽");
+            if (barBackground != null && barBackground.sprite == null)
+                Debug.LogWarning($"[画板] 第 {boardIndex} 块的计时条底没有精灵");
+            if (barFill != null && barFill.sprite == null)
+                Debug.LogWarning($"[画板] 第 {boardIndex} 块的计时条填充没有精灵（需要左中锚点的图）");
+
             if (canvas != null && canvasRenderer != null) canvas.Bind(canvasRenderer);
             Refresh();
         }
@@ -94,8 +104,13 @@ namespace RoomDemo
             if (frame != null)
             {
                 // 外框比画布大一圈，垫在底下当边框。
-                // 注意 RoomShapes.Rect 是<b>底中心锚点</b>，直接放原点会让框
-                // 从画板中心往上长（底部对齐原点），必须上移半个框高才能居中。
+                //
+                // 这里的 -fy*0.5f 偏移是按<b>底中心锚点</b>精灵写的：
+                // 底中心锚点的图放在原点时，框会从画板中心往上长，
+                // 必须上移半个框高才居中。
+                //
+                // ⚠️ 手绘图如果锚点不是底中心（比如居中），这个偏移会导致外框偏下。
+                // 换美术图后若外框没对齐框住画布，把这里改成 Vector3.zero。
                 float fx = boardWidth + 0.14f;
                 float fy = boardHeight + 0.14f;
                 frame.transform.localPosition = new Vector3(0f, -fy * 0.5f, 0f);
