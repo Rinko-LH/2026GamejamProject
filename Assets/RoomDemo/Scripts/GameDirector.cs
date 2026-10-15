@@ -48,8 +48,10 @@ namespace RoomDemo
         void OnPaintingCompleted(int index)
         {
             paintingsCompleted++;
-            if (paintingsCompleted >= (board != null ? board.canvas.totalPaintings : 3))
-                Debug.Log("[结算] 全部画作完成（结局逻辑待补充）");
+            int total = board != null ? board.TotalPaintings : 3;
+            Debug.Log($"[画板] 第 {index} 幅达标（{paintingsCompleted}/{total}）");
+            if (paintingsCompleted >= total)
+                Debug.Log("[结算] 全部画作达标（结局逻辑待补充）");
         }
 
         void OnDayEnded()
@@ -63,7 +65,7 @@ namespace RoomDemo
             paintingsCompleted = 0;
             if (stats != null) stats.ResetStats();
             if (timer != null) timer.ResetTimer();
-            if (board != null && board.canvas != null) board.canvas.ResetAllPaintings();
+            if (board != null) board.ResetBoards();
         }
     }
 }

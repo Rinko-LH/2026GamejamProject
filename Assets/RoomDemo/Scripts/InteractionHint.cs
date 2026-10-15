@@ -97,7 +97,8 @@ namespace RoomDemo
         {
             get
             {
-                if (player == null) return false;
+                // 玩家被藏起来（比如进了画板特写）时，一切提示都不该出现
+                if (player == null || !player.gameObject.activeInHierarchy) return false;
                 return Mathf.Abs(player.position.x - transform.position.x) < triggerRange;
             }
         }

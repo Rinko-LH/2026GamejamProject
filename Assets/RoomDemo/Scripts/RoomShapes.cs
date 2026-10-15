@@ -13,7 +13,7 @@ namespace RoomDemo
     {
         public const float PPU = 64f;
 
-        static Sprite _floor, _backWall, _wallLeft, _wallRight, _rect, _ellipse, _shadow;
+        static Sprite _floor, _backWall, _wallLeft, _wallRight, _rect, _ellipse, _shadow, _bar;
 
         /// <summary>带透视的整块地板（含棋盘格与砖缝），锚点在屏幕底部中心。</summary>
         public static Sprite Floor
@@ -55,6 +55,12 @@ namespace RoomDemo
         public static Sprite Shadow
         {
             get { if (_shadow == null) _shadow = BakeShadow(64, 32); return _shadow; }
+        }
+
+        /// <summary>左锚点白色矩形（进度条填充用），锚点在左中：缩放 x 时从左往右长。</summary>
+        public static Sprite Bar
+        {
+            get { if (_bar == null) _bar = BakeBar(); return _bar; }
         }
 
         // ---------------------------------------------------------------
@@ -269,6 +275,17 @@ namespace RoomDemo
             FillEllipse(px, w, h, w * 0.5f, h * 0.5f, w * 0.45f, h * 0.42f, new Color32(0, 0, 0, 255));
             tex.SetPixels32(px);
             return Finish(tex, w, h, new Vector2(w * 0.5f, h * 0.5f), "RoomShadow");
+        }
+
+        static Sprite BakeBar()
+        {
+            var tex = NewTexture(64, 64, "RoomBarTex");
+            var px = new Color32[64 * 64];
+            var c = new Color32(255, 255, 255, 255);
+            for (int i = 0; i < px.Length; i++) px[i] = c;
+            tex.SetPixels32(px);
+            // 锚点放在左中：进度条填充从左往右长，右端自然对齐满值
+            return Finish(tex, 64, 64, new Vector2(0f, 32f), "RoomBar");
         }
 
         static void FillEllipse(Color32[] px, int w, int h, float cx, float cy, float rx, float ry, Color32 c)
