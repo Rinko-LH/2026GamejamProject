@@ -375,6 +375,15 @@ namespace RoomDemo
             var taskGo = EnsureChild(uiRoot.transform, "TaskHints");
             Ensure<RoomDemo.UI.TaskHints>(taskGo);
 
+            // 关键：面板宿主必须有 RectTransform 并锚到画布四角/底中，
+            // 否则是挂在 Canvas 下的普通 Transform（位于世界原点≈屏幕中心），
+            // 子 UI 全部堆在屏幕中央（已实测踩坑）。宿主零尺寸，子 Label 的
+            // 锚点偏移即等效于相对画布对应角，与各组件 Build 里的设计值一致。
+            EnsureUiHost(statusGo, new Vector2(0f, 1f));    // 左上
+            EnsureUiHost(clockGo, new Vector2(1f, 1f));     // 右上
+            EnsureUiHost(dlgGo, new Vector2(0.5f, 0f));     // 底中
+            EnsureUiHost(taskGo, new Vector2(0f, 0f));      // 左下
+
             // ---- 12. 猫（S2，策划案 2.4） ----
             // 挂 RoomWorld 下：进画板特写时随房间整体 SetActive(false)
             // 一起隐藏，猫的 Update 一并冻结，退出自动恢复。
@@ -467,6 +476,20 @@ namespace RoomDemo
                 go.transform.SetParent(parent, false);
             }
             return go;
+        }
+
+        /// <summary>
+        /// 给 Canvas 下的面板宿主补 RectTransform 并锚定到 anchor（零尺寸、零偏移）。
+        /// 普通空物体挂在 Canvas 下时停留在世界原点（≈屏幕中心），其下所有 UI
+        /// 会堆在屏幕中央——宿主必须有 RectTransform。
+        /// </summary>
+        static void EnsureUiHost(GameObject go, Vector2 anchor)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            if (rt == null) rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
         }
 
         static SpriteRenderer EnsureRenderer(GameObject go, int sortingOrder)

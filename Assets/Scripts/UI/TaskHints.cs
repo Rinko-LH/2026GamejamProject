@@ -44,7 +44,10 @@ namespace RoomDemo.UI
 
         void OnQuest(QuestCompletedEvent e)
         {
-            _done.Add(e.Id.ToString());
+            var id = e.Id.ToString();
+            // 同一支线只列一次（猫打乱一局可触发多次，面板去重显示）
+            if (_done.Contains(id)) return;
+            _done.Add(id);
             _label.text = "支线进展：\n· " + string.Join("\n· ", _done);
         }
     }
