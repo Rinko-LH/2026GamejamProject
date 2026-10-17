@@ -30,10 +30,6 @@ namespace RoomDemo
         [Header("结算")]
         public int paintingsCompleted;
 
-        [Header("调试 HUD")]
-        [Tooltip("Demo 占位 UI：左上角显示流程状态/时钟/剩余秒数/状态值，F1 可隐藏。正式 UI 做好后可整段删除")]
-        public bool showDebugHud = true;
-
         float _openingTimer;
         bool _subscribed;
         bool _inputSubscribed;
@@ -109,7 +105,6 @@ namespace RoomDemo
                 var im = InputManager.Instance;
                 if (im != null)
                 {
-                    im.DebugToggleHud -= OnDebugToggleHud; im.DebugToggleHud += OnDebugToggleHud;
                     im.DebugFastForward -= OnDebugFastForward; im.DebugFastForward += OnDebugFastForward;
                     im.DebugRestart -= OnDebugRestart; im.DebugRestart += OnDebugRestart;
                     _inputSubscribed = true;
@@ -124,7 +119,6 @@ namespace RoomDemo
             var im = InputManager.Instance;
             if (im != null)
             {
-                im.DebugToggleHud -= OnDebugToggleHud;
                 im.DebugFastForward -= OnDebugFastForward;
                 im.DebugRestart -= OnDebugRestart;
             }
@@ -158,7 +152,7 @@ namespace RoomDemo
             if (timer != null) timer.PauseCountdown();
             int total = board != null ? board.TotalPaintings : 3;
             Debug.Log($"[结算] 时间到。完成画作 {paintingsCompleted}/{total}，时钟 {timer?.ClockText}，" +
-                      $"水分 {stats?.Water.Value:F0}% / 饱食度 {stats?.Satiety.Value:F0}% / 精神 {stats?.Spirit.Value:F0}%（结局逻辑待补充）");
+                      $"水分 {stats?.Water.Value:F0}% / 饱食 {stats?.Satiety.Value:F0}% / 精神 {stats?.Spirit.Value:F0}%（结局逻辑待补充）");
             SetState(GameFlowState.Settlement);
         }
 
@@ -231,96 +225,7 @@ namespace RoomDemo
             EnterOpening();
         }
 
-        // ---------- 调试 HUD ----------
-        // Demo 阶段没有正式 UI，用 IMGUI 在屏幕左上角把流程状态、
-        // 游戏内时钟、剩余秒数、进度条、状态值打出来，方便手动验收。
-        // 正式 UI（状态栏/时钟/结局界面）做好后，OnGUI + HudText 可整段删除。
-
-        /// <summary>
-        /// 调试 HUD 是否该显示。正式 UI（S1）上线后按状态收敛：
-        /// 结算界面起来时调试 HUD 让位，避免两套面板叠在一起。
-        /// </summary>
-        public bool ShouldShowHud => showDebugHud && State != GameFlowState.Settlement;
-
-        void OnGUI()
-        {
-            if (!ShouldShowHud) return;
-
-            const float pad = 14f;
-            const float lineH = 28f;
-            float w = 480f;
-            var box = new Rect(10f, 10f, w, lineH * 6f + pad * 2f + 10f);
-
-            // 半透明黑底，保证文字在任何手绘背景上都看得清
-            var gc = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.6f);
-            GUI.DrawTexture(box, Texture2D.whiteTexture);
-            GUI.color = gc;
-
-            float y = 10f + pad;
-            HudText(22f, y, "[DEMO HUD] F1 隐藏 ｜ T 快进60分钟 ｜ 结算后按 R 重开", 14); y += lineH - 6f;
-
-            if (State == GameFlowState.Opening)
-            {
-                bool dlgBusy = dialogue != null && dialogue.IsPlaying;
-                string openingLine = dlgBusy
-                    ? "状态：开场对白（第 " + (dialogue.CurrentIndex + 1) + "/" + dialogue.lines.Length + " 行，空格推进 · Esc 跳过）"
-                    : "状态：开场独白（" + Mathf.Max(0f, openingSeconds - _openingTimer).ToString("F1") + "s 后进入自由探索）";
-                HudText(22f, y, openingLine, 20);
-            }
-            else if (State == GameFlowState.Exploring)
-                HudText(22f, y, "状态：自由探索", 20);
-            else
-                HudText(22f, y, "状态：结算（时间到，按 R 重开）", 20);
-            y += lineH;
-
-            if (timer != null)
-            {
-                HudText(22f, y, "时钟 " + timer.ClockText + " ｜ 剩余 " + Mathf.CeilToInt(timer.RemainingSeconds)
-                        + "s / " + timer.roundSeconds.ToString("F0") + "s", 20);
-                y += lineH;
-
-                // 进度条：剩余 60 秒以内变红提醒
-                var barBg = new Rect(22f, y + 4f, w - 44f, 16f);
-                GUI.color = new Color(1f, 1f, 1f, 0.22f);
-                GUI.DrawTexture(barBg, Texture2D.whiteTexture);
-                GUI.color = timer.RemainingSeconds <= 60f
-                    ? new Color(0.95f, 0.35f, 0.30f)
-                    : new Color(0.55f, 0.85f, 0.55f);
-                GUI.DrawTexture(new Rect(barBg.x, barBg.y, barBg.width * timer.Progress01, barBg.height), Texture2D.whiteTexture);
-                GUI.color = gc;
-                y += lineH + 6f;
-            }
-
-            int total = board != null ? board.TotalPaintings : 3;
-            string statsText = stats != null
-                ? "水分 " + stats.Water.Value.ToString("F0") + " ｜ 饱食 " + stats.Satiety.Value.ToString("F0")
-                  + " ｜ 精神 " + stats.Spirit.Value.ToString("F0")
-                : "水分 - ｜ 饱食 - ｜ 精神 -";
-            HudText(22f, y, "画作 " + paintingsCompleted + "/" + total + " ｜ " + statsText, 18); y += lineH;
-
-            HudText(22f, y, "操作：WASD 移动 ｜ E 交互（吃喝各扣 10 秒）｜ 1 游戏分钟 = 0.5 秒", 14);
-        }
-
-        /// <summary>带深色描边的 HUD 文字（IMGUI 无背景，不加描边在亮背景上看不清）。</summary>
-        static void HudText(float x, float y, string text, int size)
-        {
-            var st = new GUIStyle(GUI.skin.label);
-            st.fontSize = size;
-            st.fontStyle = FontStyle.Bold;
-            var dark = new Color(0f, 0f, 0f, 0.85f);
-            st.normal.textColor = dark;
-            GUI.Label(new Rect(x - 1f, y, 1400f, 44f), text, st);
-            GUI.Label(new Rect(x + 1f, y, 1400f, 44f), text, st);
-            GUI.Label(new Rect(x, y - 1f, 1400f, 44f), text, st);
-            GUI.Label(new Rect(x, y + 1f, 1400f, 44f), text, st);
-            st.normal.textColor = Color.white;
-            GUI.Label(new Rect(x, y, 1400f, 44f), text, st);
-        }
-
-        // ---------- 调试快捷键（1.7 起经 InputManager 派发，正式 UI 做好后连订阅一起删） ----------
-
-        void OnDebugToggleHud() => showDebugHud = !showDebugHud;
+        // ---------- 调试快捷键（1.7 起经 InputManager 派发；F1 隐藏 HUD 已随 IMGUI 占位删除） ----------
 
         void OnDebugFastForward()
         {

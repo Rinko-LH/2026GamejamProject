@@ -1,7 +1,9 @@
 using RoomDemo.Contracts;
+using RoomDemo.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RoomDemo
 {
@@ -22,10 +24,17 @@ namespace RoomDemo
     ///       PaintingBoard1~3/
     ///         Frame  Canvas  BarBg  BarFill
     ///   BrushPickup/
-    ///   Dialogue/                 ← 1.5 对话系统（DialogueManager + IMGUI 占位框，第 3 步换 uGUI）
-    ///   ProgressTracker/          ← S0 契约层进度总线（支线 Report → UI/结算订阅）
-    ///   TestSnack / TestWater          ← Demo 验收用的吃喝道具（占位纯色图）
-    /// GameManager/
+    ///   Dialogue/                 ← 1.5 对话系统（DialogueManager）
+///   ProgressTracker/          ← S0 契约层进度总线（支线 Report → UI/结算订阅）
+///   TestSnack / TestWater          ← Demo 验收用的吃喝道具（占位纯色图）
+///   UIRoot/                   ← S1 UI 四件套（Canvas + 状态栏/时钟/对话/任务提示）
+/// RoomWorld/
+///   Cat/                      ← S2 猫（打乱只经 Progress 上报，不碰道具，R1）
+///   TidyDesk / TidyShelf      ← S3 收拾（两段式 E）
+/// GameManager/
+///
+/// 节号说明：11 = S1 UI 四件套；12 = S2 猫；13 = S3 收拾，
+/// 与《跨系统整合手册》节号切分表一致。
     ///
     /// 用法：执行 <b>GameJam/SetupDrawingBoard (TestScene)</b>。
     /// 不在 TestScene 时会自动打开它，装配完自动存盘。
@@ -47,6 +56,7 @@ namespace RoomDemo
         const int OrderBarFill = 15103;
         const int OrderBoardMarker = 15050;
         const int OrderBrush = 15060;
+        const int OrderCat = 15070;
 
         [MenuItem(MenuPath)]
         public static void Build()
@@ -307,9 +317,13 @@ namespace RoomDemo
             soMgr.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- 9. 对话系统（策划案 1.5） ----
+            // ---- 9. 对话系统（策划案 1.5） ----
+            // 注意：DialogueBoxUI（对话框 UI）改由第 11 节挂到 UI Canvas 下，这里不再挂。
             var dialogueGo = EnsureChild(systems.transform, "Dialogue");
             var dialogue = Ensure<DialogueManager>(dialogueGo);
-            Ensure<DialogueBoxUI>(dialogueGo);
+            // 清掉旧版可能残留的 DialogueBoxUI（避免重复对话框 + 脱离 Canvas 渲染错位）
+            var staleDlg = dialogueGo.GetComponent<DialogueBoxUI>();
+            if (staleDlg != null) Object.DestroyImmediate(staleDlg);
 
             // 开场对白占位台词（E2）：Inspector 里随时可改，策划案正文到了直接替换数组。
             // 叙事引导顺序修正（用户提出"按逻辑不是要先吃早餐吗"）：
@@ -332,6 +346,74 @@ namespace RoomDemo
             // GameManager.Awake 会把它注册进 Services.Progress。
             var progressGo = EnsureChild(systems.transform, "ProgressTracker");
             Ensure<ProgressTracker>(progressGo);
+
+            // ---- 11. UI 四件套（S1，策划案 1.6） ----
+            // 正式 uGUI：状态栏 / 时钟 / 对话 / 任务提示，全部订阅 Services，互不持引用。
+            // 各自 Start 里自建房梁 Text（占位期系统字体），进 play 即显示；美术到位后
+            // 可整段换成带图版 prefab 而不动玩法代码。
+            var uiRoot = EnsureChild(systems.transform, "UIRoot");
+            var uiCanvas = uiRoot.GetComponent<Canvas>();
+            if (uiCanvas == null)
+            {
+                uiCanvas = uiRoot.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 10;
+                var scaler = uiRoot.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                uiRoot.AddComponent<GraphicRaycaster>();
+            }
+            var statusGo = EnsureChild(uiRoot.transform, "StatusBar");
+            Ensure<RoomDemo.UI.StatusBar>(statusGo);
+            var clockGo = EnsureChild(uiRoot.transform, "ClockDisplay");
+            var clock = Ensure<RoomDemo.UI.ClockDisplay>(clockGo);
+            var clockSO = new SerializedObject(clock);
+            clockSO.FindProperty("timer").objectReferenceValue = timer;
+            clockSO.ApplyModifiedPropertiesWithoutUndo();
+            var dlgGo = EnsureChild(uiRoot.transform, "DialogueBox");
+            Ensure<DialogueBoxUI>(dlgGo);
+            var taskGo = EnsureChild(uiRoot.transform, "TaskHints");
+            Ensure<RoomDemo.UI.TaskHints>(taskGo);
+
+            // ---- 12. 猫（S2，策划案 2.4） ----
+            // 挂 RoomWorld 下：进画板特写时随房间整体 SetActive(false)
+            // 一起隐藏，猫的 Update 一并冻结，退出自动恢复。
+            // 占位纯色图，美术到位后换 sprite；游走/打乱参数 Inspector 可调。
+            // 打乱只经 Services.Progress 上报（R1），不直接碰任何道具。
+            var roomWorldGo = GameObject.Find("RoomWorld");
+            var catParent = roomWorldGo != null ? roomWorldGo.transform : systems.transform;
+            var catGo = catParent.Find("Cat")?.gameObject;
+            if (catGo == null)
+            {
+                catGo = new GameObject("Cat");
+                // 右侧猫角；重跑菜单不覆盖美术已调好的位置（只在新建时摆位）
+                catGo.transform.position = new Vector3(3.6f, 0.5f, 0f);
+                catGo.transform.SetParent(catParent, true);
+                catGo.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
+            }
+            var cat = Ensure<CatController>(catGo);
+            var catSr = catGo.GetComponent<SpriteRenderer>();
+            if (catSr == null)
+            {
+                catSr = catGo.AddComponent<SpriteRenderer>();
+                catSr.sprite = MakePlaceholderSprite("cat", new Color(0.95f, 0.62f, 0.30f));
+                catSr.sortingOrder = OrderCat;
+            }
+            // 数值案显式写死（公开字段序列化值不随代码默认值更新，K2）
+            var soCat = new SerializedObject(cat);
+            soCat.FindProperty("wanderRadius").floatValue = 1.2f;
+            soCat.FindProperty("minInterval").floatValue = 10f;
+            soCat.FindProperty("maxInterval").floatValue = 20f;
+            soCat.FindProperty("maxMischiefPerRun").intValue = 3;
+            soCat.ApplyModifiedPropertiesWithoutUndo();
+
+            // ---- 13. 收拾（S3，策划案 2.3） ----
+            // 桌面 + 书架各一个 TidySpot，两段式 E（第一次高亮、第二次执行）。
+            // 收拾物 = Items 下的 itemCount 个占位色块；高亮 = Highlight 子物体。
+            // 全部可重复执行：已存在只补齐，不覆盖美术调好的参数。
+            var tidyParent = roomWorldGo != null ? roomWorldGo.transform : systems.transform;
+            EnsureTidySpot(tidyParent, player, stats, "TidyDesk", new Vector3(-2.6f, 0.9f, 0f), QuestId.TidyDesk);
+            EnsureTidySpot(tidyParent, player, stats, "TidyShelf", new Vector3(2.4f, 1.1f, 0f), QuestId.TidyShelf);
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
@@ -450,6 +532,73 @@ namespace RoomDemo
             so.FindProperty("interactRange").floatValue = 1.4f;
             so.FindProperty("reportId").enumValueIndex = (int)reportId;
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>摆放一个收拾点（可重复执行：已存在只补齐组件和引用、不覆盖美术参数）。</summary>
+        static void EnsureTidySpot(Transform parent, Transform player, PlayerStats stats, string objName, Vector3 worldPos, QuestId reportId)
+        {
+            var go = GameObject.Find(objName);
+            if (go == null)
+            {
+                go = new GameObject(objName);
+                go.transform.position = worldPos;
+                go.transform.SetParent(parent, true); // 保留世界坐标
+            }
+
+            var spot = Ensure<RoomDemo.Quest.TidySpot>(go);
+            var itemsRoot = EnsureChild(go.transform, "Items");
+
+            // 生成 itemCount 个占位色块（桌面/书架的散落物）
+            const int count = 3;
+            for (int i = 0; i < count; i++)
+            {
+                string itemName = "Item" + i;
+                var itemGo = itemsRoot.transform.Find(itemName)?.gameObject;
+                if (itemGo == null)
+                {
+                    itemGo = new GameObject(itemName);
+                    itemGo.transform.SetParent(itemsRoot.transform, false);
+                    itemGo.transform.localPosition = new Vector3(i * 0.5f - 0.5f, 0f, 0f);
+                }
+                var sr = itemGo.GetComponent<SpriteRenderer>();
+                if (sr == null)
+                {
+                    sr = itemGo.AddComponent<SpriteRenderer>();
+                    sr.sprite = MakePlaceholderSprite("tidy_" + objName.ToLowerInvariant() + "_" + i, new Color(0.82f, 0.78f, 0.30f));
+                    sr.sortingOrder = OrderCat + 1;
+                }
+            }
+
+            // 高亮提示物（第一次 E 时点亮）
+            var highlightGo = EnsureChild(go.transform, "Highlight");
+            var hlSr = highlightGo.GetComponent<SpriteRenderer>();
+            if (hlSr == null)
+            {
+                hlSr = highlightGo.AddComponent<SpriteRenderer>();
+                hlSr.sprite = MakePlaceholderSprite("tidy_hl_" + objName.ToLowerInvariant(), new Color(1f, 1f, 0.25f, 0.45f));
+                hlSr.sortingOrder = OrderCat + 2;
+            }
+            highlightGo.SetActive(false);
+
+            // 接线（公开字段直接赋值，序列化随场景存盘；重跑不覆盖美术调好的参数）
+            spot.player = player;
+            spot.stats = stats;
+            spot.reportId = reportId;
+            spot.effect = StatKind.Spirit;
+            spot.amount = 20f;
+            spot.itemCount = count;
+            spot.interactRange = 1.4f;
+            spot.itemsRoot = itemsRoot.transform;
+            spot.highlight = highlightGo;
+            spot.lines = new DialogueLine[]
+            {
+                new DialogueLine
+                {
+                    text = objName == "TidyDesk" ? "桌面收拾干净了，清爽！" : "书架理好了，舒服多了。",
+                    autoAdvance = 3f
+                }
+            };
+            EditorUtility.SetDirty(spot);
         }
 
         /// <summary>

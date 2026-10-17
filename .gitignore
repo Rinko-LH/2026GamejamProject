@@ -101,3 +101,8 @@ Assets/Resources/TaptapPublicKey.txt*
 .workbuddy/memory/
 
 .idea
+
+# 项目惯例：以下不进版本库
+.vsconfig
+Assets/RoomDemo/
+Assets/RoomDemo.meta
