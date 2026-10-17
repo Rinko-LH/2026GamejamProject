@@ -26,11 +26,21 @@ namespace RoomDemo.World
         enum State { Idle, Wander, Mischief }
 
         [Header("游走")]
-        [Tooltip("以初始位置为窝，游走半径")]
+        [Tooltip("以初始位置为窝，游走半径（无路点时的兜底）")]
         public float wanderRadius = 1.2f;
 
         [Tooltip("游走速度（单位/秒）")]
         public float moveSpeed = 1.1f;
+
+        [Header("巡逻路点（配了就走交互点）")]
+        [Tooltip("巡逻路点（各交互物 Transform）；为空时退回窝+半径游走")]
+        public Transform[] waypoints;
+
+        [Tooltip("站位相对路点的纵向偏移（负值=站在交互物跟前偏下，不挡交互判定）")]
+        public float standYOffset = -0.7f;
+
+        [Tooltip("判定到达路点的距离")]
+        public float arriveDistance = 0.15f;
 
         [Header("打乱节奏")]
         [Tooltip("两次打乱的最小间隔（打回后 CD，秒）")]
@@ -114,7 +124,24 @@ namespace RoomDemo.World
         void StartWander()
         {
             _state = State.Wander;
-            _stateTimer = Random.Range(2f, 4f);
+
+            // 路点巡逻：随机挑一个交互点，走到它跟前（偏下一点）。
+            // 超时要盖住最远路程：早餐(-4.2)到书架(4.2)横穿 8.4 单位，
+            // @2.0 速度要 4.2s，给 6-9s 才不会半路掉头。
+            if (waypoints != null && waypoints.Length > 0)
+            {
+                var wp = waypoints[Random.Range(0, waypoints.Length)];
+                if (wp != null)
+                {
+                    _stateTimer = Random.Range(6f, 9f);
+                    _wanderTarget = wp.position +
+                                    new Vector3(Random.Range(-0.3f, 0.3f), standYOffset, 0f);
+                    return;
+                }
+            }
+
+            // 兜底：窝 + 半径（旧场景没接路点也不破坏行为）
+            _stateTimer = Random.Range(4f, 8f);
             var offset = Random.insideUnitCircle * wanderRadius;
             _wanderTarget = _homePos + new Vector3(offset.x, offset.y * 0.5f, 0f);
         }
@@ -123,9 +150,11 @@ namespace RoomDemo.World
         {
             _state = State.Mischief;
             _stateTimer = mischiefDashTime;
-            // 在窝旁边随便挑个点冲刺过去，看着像扒拉了一下什么东西。
+            // 在**当前位置**旁边随便挑个点冲刺过去，看着像扒拉了一下什么东西。
+            // （路点巡逻后猫大半时间在交互点跟前，就近扒拉比跑回窝自然。）
             // 具体弄乱谁由收拾系统收到上报后自行决定（猫不知道有哪些物品）。
-            _wanderTarget = _homePos + new Vector3(Random.Range(-0.8f, 0.8f), Random.Range(-0.3f, 0.3f), 0f);
+            _wanderTarget = transform.position +
+                            new Vector3(Random.Range(-0.8f, 0.8f), Random.Range(-0.3f, 0.3f), 0f);
         }
 
         void FinishMischief()
@@ -153,7 +182,8 @@ namespace RoomDemo.World
 
         bool HasArrived()
         {
-            return (_wanderTarget - transform.position).sqrMagnitude < 0.0025f;
+            return (_wanderTarget - transform.position).sqrMagnitude <
+                   arriveDistance * arriveDistance;
         }
 
         /// <summary>打乱冲刺时轻微挤压拉伸，占位期也能看出"在干坏事"。</summary>

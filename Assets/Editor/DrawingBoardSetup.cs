@@ -452,8 +452,12 @@ namespace RoomDemo
                 catSr.sortingOrder = OrderCat;
             }
             // 数值案显式写死（公开字段序列化值不随代码默认值更新，K2）
+            // moveSpeed 2.0：1.1 走到早餐点要 7.6s，太慢看着像卡住。
             var soCat = new SerializedObject(cat);
+            soCat.FindProperty("moveSpeed").floatValue = 2.0f;
             soCat.FindProperty("wanderRadius").floatValue = 1.2f;
+            soCat.FindProperty("standYOffset").floatValue = -0.7f;
+            soCat.FindProperty("arriveDistance").floatValue = 0.15f;
             soCat.FindProperty("minInterval").floatValue = 10f;
             soCat.FindProperty("maxInterval").floatValue = 20f;
             soCat.FindProperty("maxMischiefPerRun").intValue = 3;
@@ -488,6 +492,25 @@ namespace RoomDemo
 
             // ---- 15. 主角层级（P8） ----
             EnsurePlayerLayer(player);
+
+            // ---- 16. 猫路点接线 ----
+            // 此时五个交互物都已就位（猫那节在前面建不了）：
+            // 猫巡逻时随机挑一个走到跟前站着，不再困在窝的 1.2 半径里。
+            var waypointNames = new[] { "Breakfast", "TidyDesk", "DrawingBoard", "WaterSource", "TidyShelf" };
+            var wpList = new Transform[waypointNames.Length];
+            var wpFound = 0;
+            for (var i = 0; i < waypointNames.Length; i++)
+            {
+                var wpGo = GameObject.Find(waypointNames[i]);
+                if (wpGo != null) { wpList[i] = wpGo.transform; wpFound++; }
+            }
+            var soCatWp = new SerializedObject(cat);
+            var wpProp = soCatWp.FindProperty("waypoints");
+            wpProp.arraySize = wpList.Length;
+            for (var i = 0; i < wpList.Length; i++)
+                wpProp.GetArrayElementAtIndex(i).objectReferenceValue = wpList[i];
+            soCatWp.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log($"[画板] 猫路点接线完成：{wpFound}/5 个交互点");
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
