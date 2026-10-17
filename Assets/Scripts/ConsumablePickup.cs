@@ -35,7 +35,7 @@ namespace RoomDemo
 
             channel.Add(amount);
 
-            if (costTime && timer != null) timer.SpendMinutes(costMinutes);
+            if (costTime && timer != null) timer.SpendGameMinutes(costMinutes);
 
             canInteract = false;
             gameObject.SetActive(false);

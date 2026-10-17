@@ -21,7 +21,8 @@ namespace RoomDemo
     ///       PaintingBoard1~3/
     ///         Frame  Canvas  BarBg  BarFill
     ///   BrushPickup/
-    /// GameDirector/
+    ///   TestSnack / TestWater          ← Demo 验收用的吃喝道具（占位纯色图）
+    /// GameManager/
     ///
     /// 用法：执行 <b>GameJam/SetupDrawingBoard (TestScene)</b>。
     /// 不在 TestScene 时会自动打开它，装配完自动存盘。
@@ -257,19 +258,33 @@ namespace RoomDemo
             targets.GetArrayElementAtIndex(0).objectReferenceValue = brushSr;
             brushHintTargets.ApplyModifiedPropertiesWithoutUndo();
 
+            // ---- 7.5 测试用吃喝道具 ----
+            // Demo 验收专用：手绘场景没有占位图，这里用编辑器生成的纯色 PNG
+            // 当可见道具。靠近按 E 拾取 → 状态值回补 + 倒计时按倍率扣除
+            // （20 游戏分钟 = 10 真实秒，正好能在 HUD 上看到剩余秒数跳减）。
+            // 正式支线玩法做好后，本节和 Placeholders 目录可整个删掉。
+            EnsureTestConsumable(systems.transform, player, stats, timer,
+                "TestSnack", new Vector3(3.2f, 1.2f, 0f),
+                ConsumablePickup.Effect.Satiety, 20f, 20f,
+                new Color(0.95f, 0.62f, 0.28f), "test_snack");
+            EnsureTestConsumable(systems.transform, player, stats, timer,
+                "TestWater", new Vector3(-1.6f, 1.2f, 0f),
+                ConsumablePickup.Effect.Water, 20f, 20f,
+                new Color(0.38f, 0.68f, 0.95f), "test_water");
+
             // ---- 8. 总控 ----
-            var directorGo = FindOrCreate("GameDirector");
-            var director = Ensure<GameDirector>(directorGo);
-            var soDir = new SerializedObject(director);
-            soDir.FindProperty("stats").objectReferenceValue = stats;
-            soDir.FindProperty("timer").objectReferenceValue = timer;
-            soDir.FindProperty("board").objectReferenceValue = interact;
-            soDir.ApplyModifiedPropertiesWithoutUndo();
+            var managerGo = FindOrCreate("GameManager");
+            var manager = Ensure<GameManager>(managerGo);
+            var soMgr = new SerializedObject(manager);
+            soMgr.FindProperty("stats").objectReferenceValue = stats;
+            soMgr.FindProperty("timer").objectReferenceValue = timer;
+            soMgr.FindProperty("board").objectReferenceValue = interact;
+            soMgr.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
             EditorUtility.SetDirty(systems);
-            EditorUtility.SetDirty(directorGo);
+            EditorUtility.SetDirty(managerGo);
             EditorSceneManager.MarkSceneDirty(scene);
 
             // 存盘，这样画板功能就真正落在 TestScene 里了
@@ -347,6 +362,75 @@ namespace RoomDemo
                 Debug.LogError($"[画板] 无法给 {go.name} 挂上 {typeof(T).Name}，请检查脚本是否编译通过");
             }
             return c;
+        }
+
+        /// <summary>摆放一个测试用吃喝道具（可重复执行：已存在只补齐组件和引用）。</summary>
+        static void EnsureTestConsumable(Transform parent, Transform player, PlayerStats stats, DayTimer timer,
+            string objName, Vector3 worldPos, ConsumablePickup.Effect effect, float amount, float costMinutes,
+            Color tint, string spriteName)
+        {
+            var go = GameObject.Find(objName);
+            if (go == null)
+            {
+                go = new GameObject(objName);
+                go.transform.position = worldPos;
+                go.transform.SetParent(parent, true); // 保留世界坐标
+            }
+
+            var cp = Ensure<ConsumablePickup>(go);
+            var sr = go.GetComponent<SpriteRenderer>();
+            if (sr == null)
+            {
+                sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = MakePlaceholderSprite(spriteName, tint);
+                sr.sortingOrder = OrderBrush;
+            }
+            go.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+
+            var so = new SerializedObject(cp);
+            so.FindProperty("player").objectReferenceValue = player;
+            so.FindProperty("stats").objectReferenceValue = stats;
+            so.FindProperty("timer").objectReferenceValue = timer;
+            so.FindProperty("effect").enumValueIndex = (int)effect;
+            so.FindProperty("amount").floatValue = amount;
+            so.FindProperty("costTime").boolValue = true;
+            so.FindProperty("costMinutes").floatValue = costMinutes;
+            so.FindProperty("interactRange").floatValue = 1.4f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// 生成/加载一张纯色占位精灵。注意必须存成 PNG 资产再用
+        /// TextureImporter 转成 Sprite——运行时 Texture2D 直接 Sprite.Create
+        /// 出来的引用存不进场景，重开场景会丢。
+        /// </summary>
+        static Sprite MakePlaceholderSprite(string name, Color color)
+        {
+            const string dir = "Assets/Scenes/Placeholders";
+            string path = dir + "/" + name + ".png";
+            if (!AssetDatabase.IsValidFolder(dir))
+                AssetDatabase.CreateFolder("Assets/Scenes", "Placeholders");
+
+            var existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (existing != null) return existing;
+
+            var tex = new Texture2D(16, 16);
+            var px = new Color[16 * 16];
+            for (int i = 0; i < px.Length; i++) px[i] = color;
+            tex.SetPixels(px);
+            tex.Apply();
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            AssetDatabase.ImportAsset(path);
+
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spritePixelsPerUnit = 16f;
+                importer.filterMode = FilterMode.Point;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
     }
 }

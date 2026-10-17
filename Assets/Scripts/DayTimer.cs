@@ -4,84 +4,95 @@ using UnityEngine;
 namespace RoomDemo
 {
     /// <summary>
-    /// 一天的计时器。策划案：画画会消耗时间，时间耗尽则进入结算。
-    ///
-    /// 这里只管"流逝"，不负责决定流逝多少——消耗多少由调用方
-    /// 通过 <see cref="SpendMinutes"/> 主动告知（比如画一笔算几分钟）。
+    /// 一天计时器（策划案 1.2）：480 秒真实倒计时，归零触发 DayEnded（GameManager 接住进结算）。
+    /// 流逝以游戏内时钟表现：480 秒 ↔ 960 游戏分钟（8:00 → 24:00）。
+    /// 策划案里的耗时（如吃喝）一律按【游戏分钟】传入，内部按倍率换算：1 游戏分钟 = 0.5 真实秒。
     /// </summary>
     public class DayTimer : MonoBehaviour
     {
-        [Header("一天的时间")]
-        [Tooltip("一天的分钟数。默认按 8:00 - 24:00，共 960 分钟")]
-        public int dayLengthMinutes = 960;
+        [Header("倒计时")]
+        [Tooltip("一局真实秒数")]
+        public float roundSeconds = 480f;
 
-        [Header("时钟显示")]
+        [Header("游戏内时钟")]
+        [Tooltip("一整天折算成多少游戏分钟（8:00→24:00 = 960）")]
+        public int dayLengthMinutes = 960;
         public int startHour = 8;
         public int startMinute = 0;
 
-        /// <summary>已经过去的分钟数。</summary>
-        public float ElapsedMinutes { get; private set; }
+        /// <summary>1 真实秒 = 多少游戏分钟（2.0）。</summary>
+        public float GameMinutesPerSecond => dayLengthMinutes > 0 && roundSeconds > 0f ? dayLengthMinutes / roundSeconds : 0f;
 
-        /// <summary>还剩多少分钟。</summary>
-        public float RemainingMinutes => Mathf.Max(0f, dayLengthMinutes - ElapsedMinutes);
+        /// <summary>1 游戏分钟 = 多少真实秒（0.5）——策划案耗时换算倍率。</summary>
+        public float SecondsPerGameMinute => roundSeconds > 0f && dayLengthMinutes > 0 ? roundSeconds / dayLengthMinutes : 0f;
 
-        /// <summary>0~1 的进度，1 表示一天结束。</summary>
-        public float Progress01 => dayLengthMinutes <= 0 ? 1f : Mathf.Clamp01(ElapsedMinutes / dayLengthMinutes);
+        public float RemainingSeconds { get; private set; }
+        public float Progress01 => roundSeconds <= 0f ? 1f : Mathf.Clamp01(1f - RemainingSeconds / roundSeconds);
+        public float ElapsedGameMinutes => (roundSeconds - RemainingSeconds) * GameMinutesPerSecond;
+        public bool IsRunning { get; private set; }
 
-        /// <summary>当前游戏内时刻，形如 "09:30"。</summary>
         public string ClockText
         {
             get
             {
-                int total = startHour * 60 + startMinute + Mathf.FloorToInt(ElapsedMinutes);
-                int hh = (total / 60) % 24;
-                int mm = total % 60;
-                return $"{hh:00}:{mm:00}";
+                int total = startHour * 60 + startMinute + Mathf.FloorToInt(ElapsedGameMinutes);
+                return $"{(total / 60) % 24:00}:{total % 60:00}";
             }
         }
 
-        /// <summary>一天耗尽时触发。</summary>
+        /// <summary>归零时触发一次（→ 进结算）。</summary>
         public event Action DayEnded;
 
-        /// <summary>每过一分钟触发，参数为当前时刻文本（可用于打点日志）。</summary>
+        /// <summary>游戏内每越过一分钟触发一次（打点用）。</summary>
         public event Action<string> MinuteTicked;
 
         bool _ended;
-        float _lastTickMinute;
+        int _lastTickMinute;
 
         void Awake()
         {
-            _lastTickMinute = Mathf.Floor(ElapsedMinutes);
+            RemainingSeconds = roundSeconds;
+            _lastTickMinute = Mathf.FloorToInt(ElapsedGameMinutes);
         }
 
-        /// <summary>消耗若干分钟。达到上限时触发 <see cref="DayEnded"/>。</summary>
-        public void SpendMinutes(float minutes)
+        void Update()
         {
-            if (minutes <= 0f) return;
+            if (!IsRunning || _ended) return;
+            RemainingSeconds -= Time.deltaTime;
+            if (RemainingSeconds < 0f) RemainingSeconds = 0f;
 
-            ElapsedMinutes += minutes;
-            float nowTick = Mathf.Floor(ElapsedMinutes);
-            if (nowTick > _lastTickMinute)
+            int nowMinute = Mathf.FloorToInt(ElapsedGameMinutes);
+            while (nowMinute > _lastTickMinute)
             {
-                for (float t = _lastTickMinute + 1f; t <= nowTick; t++)
-                    MinuteTicked?.Invoke(ClockText);
-                _lastTickMinute = nowTick;
+                _lastTickMinute++;
+                MinuteTicked?.Invoke(ClockText);
             }
 
-            if (!_ended && ElapsedMinutes >= dayLengthMinutes)
+            if (RemainingSeconds <= 0f)
             {
                 _ended = true;
+                IsRunning = false;
                 DayEnded?.Invoke();
             }
         }
 
-        public bool IsDayOver => _ended;
+        public void StartCountdown() { if (!_ended) IsRunning = true; }
+        public void PauseCountdown() { IsRunning = false; }
+
+        /// <summary>按策划案单位耗时：传游戏分钟，内部按倍率换算（吃喝 20 分钟 → 扣 10 秒）。</summary>
+        public void SpendGameMinutes(float gameMinutes)
+        {
+            if (gameMinutes <= 0f || _ended || !IsRunning) return;
+            RemainingSeconds -= gameMinutes * SecondsPerGameMinute;
+            if (RemainingSeconds < 0f) RemainingSeconds = 0f;
+        }
 
         public void ResetTimer()
         {
-            ElapsedMinutes = 0f;
+            RemainingSeconds = roundSeconds;
+            IsRunning = false;
             _ended = false;
-            _lastTickMinute = 0f;
+            _lastTickMinute = 0;
         }
     }
 }
