@@ -77,6 +77,18 @@ namespace RoomDemo.Quest
             _armed = false;
         }
 
+        /// <summary>
+        /// 被猫弄乱（TidySpot.MessUp 通知）：若玩家正停在特写里，
+        /// 把收拾物重新显出来，避免"对着空桌面收拾"的视觉断裂。
+        /// </summary>
+        public void NotifyMessUp()
+        {
+            if (!InCloseup) return;
+            if (itemsRoot != null)
+                foreach (Transform c in itemsRoot)
+                    if (c != null) c.gameObject.SetActive(true);
+        }
+
         public override void ResetForNewRun()
         {
             base.ResetForNewRun();

@@ -798,6 +798,10 @@ namespace RoomDemo
             spot.itemsRoot = null;   // 房间侧不再有杂物（在特写里）
             spot.highlight = null;   // 房间侧不再有高亮（在特写里）
             spot.closeup = closeup;
+            // P2 猫打乱：只有桌面能被弄乱（书架复原会打乱画笔链主线节奏）
+            spot.catMessable = objName == "TidyDesk";
+            // 偶然发现 3.5：收拾 20% 概率出矿泉水/零食
+            spot.discoveryChance = 0.2f;
             // 书架的台词第二行就是「发现画笔」的提示（S6）：
             // 收拾完成 → TidyShelf 上报 → 画笔收到进度事件自己显形，
             // 这条台词紧接着告诉玩家笔出现了，两条支线靠进度总线解耦。

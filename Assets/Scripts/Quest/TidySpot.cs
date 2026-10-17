@@ -37,6 +37,14 @@ namespace RoomDemo.Quest
         [Tooltip("完成收拾时播放的台词，可空（文案预留，后期替换）")]
         public DialogueLine[] lines = new DialogueLine[0];
 
+        [Header("猫打乱（P2 / 策划案 2.4）")]
+        [Tooltip("被猫弄乱后可重新收拾。桌面=true；书架必须=false（画笔链不能被猫打断）")]
+        public bool catMessable = false;
+
+        [Header("偶然发现（策划案 3.5）")]
+        [Tooltip("收拾完成时翻出矿泉水/零食的概率（数值案 20%），不消耗时间")]
+        public float discoveryChance = 0.2f;
+
         [Header("收拾物与高亮")]
         [Tooltip("收拾物容器，子物体会在执行时被隐藏。装配菜单生成 itemCount 个占位色块")]
         public Transform itemsRoot;
@@ -48,12 +56,58 @@ namespace RoomDemo.Quest
 
         bool _armed;
         readonly List<GameObject> _items = new List<GameObject>();
+        bool _subscribedProgress;
 
         void Awake()
         {
             if (itemsRoot != null)
                 for (int i = 0; i < itemsRoot.childCount; i++)
                     _items.Add(itemsRoot.GetChild(i).gameObject);
+        }
+
+        protected override void Update()
+        {
+            base.Update(); // 基类惰性订阅 E 键（漏调则交互失效）
+
+            // 进度总线惰性订阅：ProgressTracker 由 GameManager.Awake 注册，
+            // 播放中域重载后实例会换新，这里按帧补订。
+            if (!_subscribedProgress && ProgressTracker.Instance != null)
+            {
+                ProgressTracker.Instance.QuestCompleted += OnQuestCompleted;
+                _subscribedProgress = true;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (_subscribedProgress && ProgressTracker.Instance != null)
+                ProgressTracker.Instance.QuestCompleted -= OnQuestCompleted;
+        }
+
+        /// <summary>
+        /// 猫打乱上报（R1 解耦：猫只 Report，收拾系统自行决定复原谁）。
+        /// 已收拾完且允许被弄乱 → 恢复可交互，玩家需重新收拾。
+        /// </summary>
+        void OnQuestCompleted(QuestCompletedEvent e)
+        {
+            if (e.Id != QuestId.CatMischief || !catMessable || canInteract) return;
+            MessUp();
+        }
+
+        /// <summary>被猫弄乱：收拾物回场（重进特写自动显物）、可再次交互、播提示台词。</summary>
+        void MessUp()
+        {
+            canInteract = true;
+            _armed = false;
+            foreach (var it in _items)
+                if (it != null) it.SetActive(true);
+            if (highlight != null) highlight.SetActive(false);
+            if (closeup != null) closeup.NotifyMessUp(); // 玩家正停在特写里时同步显物
+            Services.Dialogue?.Play(new[]
+            {
+                new DialogueLine { text = "……猫把刚收拾好的桌面又扒乱了。", autoAdvance = 3f }
+            });
+            Debug.Log("[收拾] 被猫弄乱，恢复可收拾：" + name);
         }
 
         public override void Interact()
@@ -85,11 +139,29 @@ namespace RoomDemo.Quest
 
             if (reportId != QuestId.None) Services.Progress?.Report(reportId);
 
-            if (lines != null && lines.Length > 0)
-                Services.Dialogue?.Play(lines);
-
             if (highlight != null) highlight.SetActive(false);
             canInteract = false;
+
+            // 偶然发现（策划案 3.5）：20% 概率翻出矿泉水/零食，不消耗时间。
+            // 台词并入同一次 Play——DialogueManager.Play 是替换不是排队，二次调用会吞掉前面的收拾台词。
+            var allLines = new List<DialogueLine>(lines ?? new DialogueLine[0]);
+            if (Random.value < discoveryChance)
+            {
+                bool water = Random.value < 0.5f;
+                sink.Add(water ? StatKind.Water : StatKind.Satiety, water ? 20f : 10f);
+                Services.Progress?.Report(QuestId.RandomFind);
+                allLines.Add(new DialogueLine
+                {
+                    text = water
+                        ? "在杂物里翻出一瓶没开封的矿泉水，先喝了两口。（水分 +20）"
+                        : "杂物堆里居然藏了包没过期的零食，垫垫肚子。（饱食 +10）",
+                    autoAdvance = 3f
+                });
+                Debug.Log("[收拾] 偶然发现：" + (water ? "矿泉水 +20 水分" : "零食 +10 饱食"));
+            }
+
+            if (allLines.Count > 0)
+                Services.Dialogue?.Play(allLines.ToArray());
         }
 
         /// <summary>中途退出特写（尚未执行）时复位点亮态，回到房间仍可再进。</summary>
