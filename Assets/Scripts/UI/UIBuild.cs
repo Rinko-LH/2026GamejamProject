@@ -10,6 +10,29 @@ namespace RoomDemo.UI
     /// </summary>
     public static class UIBuild
     {
+        /// <summary>
+        /// 占位期默认字体。Unity 2022.3 移除了 Resources.GetBuiltinResource&lt;Font&gt;("Arial.ttf")，
+        /// 而运行时 AddComponent&lt;Text&gt;() 的 font 默认是 null（文字不渲染）。
+        /// 这里用操作系统字体兜底，避免依赖被移除的内置资源，也无需额外字体资产。
+        /// 缓存为静态，所有文本共用一个 Font 实例。
+        /// </summary>
+        static Font _defaultFont;
+        static Font GetDefaultFont()
+        {
+            if (_defaultFont != null) return _defaultFont;
+            string[] names = { "Arial", "Segoe UI", "Microsoft YaHei", "Liberation Sans" };
+            foreach (var n in names)
+            {
+                try
+                {
+                    var f = Font.CreateDynamicFontFromOSFont(n, 26);
+                    if (f != null) { _defaultFont = f; break; }
+                }
+                catch (System.Exception) { /* 该字体名不可用，试下一个 */ }
+            }
+            return _defaultFont;
+        }
+
         static RectTransform NewRect(Transform parent, string name)
         {
             var go = new GameObject(name);
@@ -27,8 +50,7 @@ namespace RoomDemo.UI
             rt.sizeDelta = size;
 
             var t = rt.gameObject.AddComponent<Text>();
-            // 不显式指定字体：AddComponent<Text>() 默认带项目默认字体（Arial 兼容），
-            // 避免 Resources.GetBuiltinResource("Arial.ttf") 在 2022.3 抛异常。
+            t.font = GetDefaultFont();   // 关键：运行时必须显式给字体，否则文字不渲染
             t.fontSize = fontSize;
             t.alignment = align;
             t.color = color;
