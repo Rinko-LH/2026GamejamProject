@@ -1,3 +1,4 @@
+using RoomDemo.Input;
 using UnityEngine;
 
 namespace RoomDemo
@@ -39,6 +40,10 @@ namespace RoomDemo
 
         [Tooltip("交互距离（只看水平方向）")]
         public float interactRange = 1.6f;
+
+        [Header("房间显隐")]
+        [Tooltip("房间手绘图根节点。进画板特写时整体隐藏、退出时恢复。留空则回退按名字查找 RoomWorld（旧装配兼容）")]
+        public Transform roomRoot;
 
         [Header("交互提示")]
         public InteractionHint hint;
@@ -157,6 +162,14 @@ namespace RoomDemo
 
         void OnDestroy()
         {
+            var im = InputManager.Instance;
+            if (im != null)
+            {
+                im.Interact -= HandleInteract;
+                im.CancelPressed -= HandleCancel;
+            }
+            _inputSubscribed = false;
+
             if (boards == null) return;
             foreach (var b in boards)
             {
@@ -169,16 +182,38 @@ namespace RoomDemo
         {
             // 惰性兜底：万一 Start 时 boards 还没就绪，这里补上订阅
             if (!_subscribed && boards != null && boards.Length > 0) EnsureSubscriptions();
+            EnsureInputSubscribed();
 
-            if (!_inCloseup)
-            {
-                // 房间内：走近画板按 E 进入
-                if (player != null && IsNearBoard() && Input.GetKeyDown(KeyCode.E))
-                    TryEnterPainting();
-                return;
-            }
+            if (_inCloseup) HandlePaintingInput();
+        }
 
-            HandlePaintingInput();
+        bool _inputSubscribed;
+
+        /// <summary>
+        /// 惰性订阅 InputManager（策划案 1.7）：房间内 E 进特写、特写里 Esc/右键退出。
+        /// Instance 未就绪时每帧重试，与 GameManager 同一套时序兜底。
+        /// </summary>
+        void EnsureInputSubscribed()
+        {
+            if (_inputSubscribed) return;
+            var im = InputManager.Instance;
+            if (im == null) return;
+            im.Interact -= HandleInteract; im.Interact += HandleInteract;
+            im.CancelPressed -= HandleCancel; im.CancelPressed += HandleCancel;
+            _inputSubscribed = true;
+        }
+
+        /// <summary>房间内：走近画板按 E 进入特写（特写中不响应，画画走鼠标）。</summary>
+        void HandleInteract()
+        {
+            if (_inCloseup) return;
+            if (player != null && IsNearBoard()) TryEnterPainting();
+        }
+
+        /// <summary>特写中：Esc/右键退出。</summary>
+        void HandleCancel()
+        {
+            if (_inCloseup) ExitPaintingMode();
         }
 
         /// <summary>
@@ -299,20 +334,18 @@ namespace RoomDemo
 
         void HandlePaintingInput()
         {
-            if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
-            {
-                ExitPaintingMode();
-                return;
-            }
+            // 输入统一走 InputManager（1.7）；退出特写改走 CancelPressed 事件订阅
+            var im = InputManager.Instance;
+            if (im == null) return;
 
             // 鼠标落在哪块画板上（不按键也能高亮）
-            PaintingBoard target = FindBoardUnderMouse(Input.mousePosition, out Vector2 canvasPos);
+            PaintingBoard target = FindBoardUnderMouse(im.PointerScreenPos, out Vector2 canvasPos);
 
             if (boards != null)
                 foreach (var b in boards)
                     if (b != null) b.SetHover(b == target);
 
-            if (Input.GetMouseButton(0))
+            if (im.PaintHeld)
             {
                 if (target != null)
                 {
@@ -452,14 +485,21 @@ namespace RoomDemo
                 if (b != null) b.SetVisible(visible);
         }
 
+        /// <summary>
+        /// 进特写时隐藏整个房间、退出时恢复。
+        /// 手绘场景把房间图收在 roomRoot 下整体开关；留空时回退按名字找
+        /// RoomWorld（兼容旧装配），再找不到就静默跳过。
+        /// </summary>
         void SetRoomVisible(bool visible)
         {
-            var room = GameObject.Find("RoomWorld");
-            if (room == null) return;
-            var shell = room.transform.Find("Shell");
-            if (shell != null) shell.gameObject.SetActive(visible);
-            var props = room.transform.Find("Props");
-            if (props != null) props.gameObject.SetActive(visible);
+            Transform room = roomRoot;
+            if (room == null)
+            {
+                var go = GameObject.Find("RoomWorld");
+                if (go == null) return;
+                room = go.transform;
+            }
+            room.gameObject.SetActive(visible);
         }
 
         /// <summary>特写时在每块画板上方画一行状态文字（色块占位期的临时 UI）。</summary>

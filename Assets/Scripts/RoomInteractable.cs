@@ -1,3 +1,4 @@
+using RoomDemo.Input;
 using UnityEngine;
 
 namespace RoomDemo
@@ -44,10 +45,38 @@ namespace RoomDemo
             return Mathf.Abs(a.x - b.x);
         }
 
+        bool _inputSubscribed;
+
+        /// <summary>
+        /// 惰性订阅 InputManager 的 Interact 事件（策划案 1.7）。
+        /// 场景加载时 InputManager 的 Awake 可能还没跑、Instance 为 null，
+        /// 每帧重试——与 GameManager.Subscribe 同一套时序兜底。
+        /// </summary>
+        void EnsureInputSubscribed()
+        {
+            if (_inputSubscribed) return;
+            var im = InputManager.Instance;
+            if (im == null) return;
+            im.Interact -= HandleInteract;
+            im.Interact += HandleInteract;
+            _inputSubscribed = true;
+        }
+
+        void HandleInteract()
+        {
+            if (PlayerInRange) Interact();
+        }
+
         protected virtual void Update()
         {
-            if (PlayerInRange && Input.GetKeyDown(KeyCode.E))
-                Interact();
+            EnsureInputSubscribed();
+        }
+
+        void OnDestroy()
+        {
+            var im = InputManager.Instance;
+            if (im != null) im.Interact -= HandleInteract;
+            _inputSubscribed = false;
         }
 
         /// <summary>执行互动。</summary>

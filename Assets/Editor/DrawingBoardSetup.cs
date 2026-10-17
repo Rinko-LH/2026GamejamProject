@@ -215,6 +215,12 @@ namespace RoomDemo
             so.FindProperty("boardMarker").objectReferenceValue = boardSr;
             so.FindProperty("hint").objectReferenceValue = hint;
             so.FindProperty("mainCamera").objectReferenceValue = FindOrthoCamera();
+
+            // 房间手绘图根节点（T0.3：进特写时整体隐藏房间）。找不到只跳过不阻断。
+            var roomWorld = GameObject.Find("RoomWorld");
+            if (roomWorld != null)
+                so.FindProperty("roomRoot").objectReferenceValue = roomWorld.transform;
+
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- 7. 画笔 ----

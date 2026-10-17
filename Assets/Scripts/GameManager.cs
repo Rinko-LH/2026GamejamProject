@@ -1,4 +1,5 @@
 using System;
+using RoomDemo.Input;
 using UnityEngine;
 
 namespace RoomDemo
@@ -32,6 +33,7 @@ namespace RoomDemo
 
         float _openingTimer;
         bool _subscribed;
+        bool _inputSubscribed;
 
         void Awake()
         {
@@ -56,12 +58,6 @@ namespace RoomDemo
 
         void Update()
         {
-            // ---- 调试快捷键（Demo 验收用，正式版可删）----
-            if (Input.GetKeyDown(KeyCode.F1)) showDebugHud = !showDebugHud;
-            if (State == GameFlowState.Exploring && Input.GetKeyDown(KeyCode.T) && timer != null)
-                timer.SpendGameMinutes(60f); // 快进 60 游戏分钟 = 30 真实秒，方便快速看到结算
-            if (State == GameFlowState.Settlement && Input.GetKeyDown(KeyCode.R)) { ResetRun(); return; }
-
             Subscribe(); // 惰性兜底，防时序竞态
             if (State == GameFlowState.Opening)
             {
@@ -72,17 +68,40 @@ namespace RoomDemo
 
         void Subscribe()
         {
-            if (_subscribed) return;
-            if (timer != null) { timer.DayEnded -= OnDayEnded; timer.DayEnded += OnDayEnded; }
-            if (board != null) { board.PaintingCompleted -= OnPaintingCompleted; board.PaintingCompleted += OnPaintingCompleted; }
-            _subscribed = true;
+            if (!_subscribed)
+            {
+                if (timer != null) { timer.DayEnded -= OnDayEnded; timer.DayEnded += OnDayEnded; }
+                if (board != null) { board.PaintingCompleted -= OnPaintingCompleted; board.PaintingCompleted += OnPaintingCompleted; }
+                _subscribed = true;
+            }
+
+            // 调试快捷键改走 InputManager（1.7）：Instance 可能还没就绪，每帧重试
+            if (!_inputSubscribed)
+            {
+                var im = InputManager.Instance;
+                if (im != null)
+                {
+                    im.DebugToggleHud -= OnDebugToggleHud; im.DebugToggleHud += OnDebugToggleHud;
+                    im.DebugFastForward -= OnDebugFastForward; im.DebugFastForward += OnDebugFastForward;
+                    im.DebugRestart -= OnDebugRestart; im.DebugRestart += OnDebugRestart;
+                    _inputSubscribed = true;
+                }
+            }
         }
 
         void Unsubscribe()
         {
             if (timer != null) timer.DayEnded -= OnDayEnded;
             if (board != null) board.PaintingCompleted -= OnPaintingCompleted;
+            var im = InputManager.Instance;
+            if (im != null)
+            {
+                im.DebugToggleHud -= OnDebugToggleHud;
+                im.DebugFastForward -= OnDebugFastForward;
+                im.DebugRestart -= OnDebugRestart;
+            }
             _subscribed = false;
+            _inputSubscribed = false;
         }
 
         // ---------- 状态流转 ----------
@@ -217,6 +236,21 @@ namespace RoomDemo
             GUI.Label(new Rect(x, y + 1f, 1400f, 44f), text, st);
             st.normal.textColor = Color.white;
             GUI.Label(new Rect(x, y, 1400f, 44f), text, st);
+        }
+
+        // ---------- 调试快捷键（1.7 起经 InputManager 派发，正式 UI 做好后连订阅一起删） ----------
+
+        void OnDebugToggleHud() => showDebugHud = !showDebugHud;
+
+        void OnDebugFastForward()
+        {
+            if (State == GameFlowState.Exploring && timer != null)
+                timer.SpendGameMinutes(60f); // 快进 60 游戏分钟 = 30 真实秒
+        }
+
+        void OnDebugRestart()
+        {
+            if (State == GameFlowState.Settlement) ResetRun();
         }
 
         void OnDayEnded() => EndDay();
