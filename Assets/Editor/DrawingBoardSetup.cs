@@ -550,6 +550,17 @@ namespace RoomDemo
             }
             Debug.Log($"[画板] 边界墙矫正完成：{wallFixed}/4 面墙");
 
+            // ---- 18. 结局判定 + 结算面板（S9/S10） ----
+            // EndingJudge 挂 GameSystems：纯逻辑，StateChanged → Settlement 沿判一次。
+            // 结算面板挂 UIRoot 下居中宿主，默认隐藏，进 Settlement 弹出；
+            // 面板内容（压暗底/信息板/五行统计/二段式 R 确认）由 SettlementUI.Start 自建。
+            var endingGo = EnsureChild(systems.transform, "EndingJudge");
+            Ensure<RoomDemo.Ending.EndingJudge>(endingGo);
+            var settleGo = EnsureChild(uiRoot.transform, "SettlementPanel");
+            Ensure<RoomDemo.Ending.SettlementUI>(settleGo);
+            EnsureUiHost(settleGo, new Vector2(0.5f, 0.5f)); // 居中零尺寸宿主，面板自建 1920×1080 全屏 Root
+            Debug.Log("[画板] 结局判定 + 结算面板就位（S9/S10）");
+
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
             EditorUtility.SetDirty(systems);

@@ -106,7 +106,8 @@ namespace RoomDemo
                 if (im != null)
                 {
                     im.DebugFastForward -= OnDebugFastForward; im.DebugFastForward += OnDebugFastForward;
-                    im.DebugRestart -= OnDebugRestart; im.DebugRestart += OnDebugRestart;
+                    // DebugRestart（R）不再直连 ResetRun（D11）：R 由 SettlementUI
+                    // 二段式确认后经 IGameFlow.ResetRun() 走，这里摘除防绕过确认。
                     _inputSubscribed = true;
                 }
             }
@@ -120,7 +121,6 @@ namespace RoomDemo
             if (im != null)
             {
                 im.DebugFastForward -= OnDebugFastForward;
-                im.DebugRestart -= OnDebugRestart;
             }
             _subscribed = false;
             _inputSubscribed = false;
@@ -149,10 +149,12 @@ namespace RoomDemo
 
         public void EnterSettlement()
         {
+            // P7：结算期必须停掉正在播的对白，否则 dialogue 上下文一直锁输入，
+            // 结算面板按 R 重开不派发（须先 Esc 跳过对白才能重开）。
+            if (dialogue != null) dialogue.Stop();
             if (timer != null) timer.PauseCountdown();
             int total = board != null ? board.TotalPaintings : 3;
-            Debug.Log($"[结算] 时间到。完成画作 {paintingsCompleted}/{total}，时钟 {timer?.ClockText}，" +
-                      $"水分 {stats?.Water.Value:F0}% / 饱食 {stats?.Satiety.Value:F0}% / 精神 {stats?.Spirit.Value:F0}%（结局逻辑待补充）");
+            Debug.Log($"[结算] 一天结束。完成画作 {paintingsCompleted}/{total}，时钟 {timer?.ClockText}（结局判定交由 EndingJudge）");
             SetState(GameFlowState.Settlement);
         }
 
@@ -160,6 +162,9 @@ namespace RoomDemo
         public void EndDay()
         {
             if (State == GameFlowState.Settlement) return;
+            // 任何入口到点结算时若还挂在画板特写里（如中途三项告急触发），
+            // 先退出画板模式回房间，别把特写留进结算画面。
+            if (board != null && board.IsPaintingMode) board.ExitPaintingMode();
             EnterSettlement();
         }
 
@@ -194,6 +199,9 @@ namespace RoomDemo
 
         /// <summary>已完成画作数（画作计数只此一处，支线进度不走这里，防双轨）。</summary>
         public int PaintingsCompleted => paintingsCompleted;
+
+        /// <summary>本局画作总数（画板配置决定）。</summary>
+        public int TotalPaintings => board != null ? board.TotalPaintings : 3;
 
         /// <summary>本局实际下笔累计秒数（数据源在 DrawingBoardInteract）。</summary>
         public float PaintingSeconds => board != null ? board.PaintingSeconds : 0f;
@@ -231,11 +239,6 @@ namespace RoomDemo
         {
             if (State == GameFlowState.Exploring && timer != null)
                 timer.SpendGameMinutes(60f); // 快进 60 游戏分钟 = 30 真实秒
-        }
-
-        void OnDebugRestart()
-        {
-            if (State == GameFlowState.Settlement) ResetRun();
         }
 
         void OnDayEnded() => EndDay();

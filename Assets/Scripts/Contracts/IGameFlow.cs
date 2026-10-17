@@ -15,11 +15,21 @@ namespace RoomDemo.Contracts
     {
         GameFlowState State { get; }
         int PaintingsCompleted { get; }
+
+        /// <summary>本局画作总数（画板配置决定，结算界面显示 n/total 用）。</summary>
+        int TotalPaintings { get; }
+
         float PaintingSeconds { get; }
         float DayElapsedSeconds { get; }
 
         /// <summary>提前结束一天（三幅画全完成时调用）；时间耗尽走 DayTimer 侧。</summary>
         void EndDay();
+
+        /// <summary>
+        /// 重开一局（回到开场独白，全场景复位）。只允许结算面板的二段式确认后调用
+        /// （D11）——InputManager→GameManager 的 R 直连已摘除，防止绕过确认。
+        /// </summary>
+        void ResetRun();
 
         event Action<GameFlowState, GameFlowState> StateChanged;
     }
