@@ -22,8 +22,8 @@ namespace RoomDemo.UI
         void Build()
         {
             if (_label != null) return;
-            _label = UIBuild.Text(transform, "Label", 26, TextAnchor.UpperRight, Color.white,
-                new Vector2(1f, 1f), new Vector2(-20f, -16f), new Vector2(380f, 130f));
+            _label = UIBuild.Text(transform, "Label", 34, TextAnchor.UpperRight, Color.white,
+                new Vector2(1f, 1f), new Vector2(-20f, -16f), new Vector2(520f, 60f));
         }
 
         void Update()

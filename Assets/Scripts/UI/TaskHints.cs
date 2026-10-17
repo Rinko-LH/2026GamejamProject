@@ -20,8 +20,8 @@ namespace RoomDemo.UI
         void Build()
         {
             if (_label != null) return;
-            _label = UIBuild.Text(transform, "Label", 18, TextAnchor.LowerLeft,
-                new Color(0.8f, 0.95f, 1f), new Vector2(0f, 0f), new Vector2(20f, 20f), new Vector2(560f, 220f));
+            _label = UIBuild.Text(transform, "Label", 26, TextAnchor.LowerLeft,
+                new Color(0.8f, 0.95f, 1f), new Vector2(0f, 0f), new Vector2(20f, 20f), new Vector2(700f, 260f));
             _label.text = "支线进展：\n（暂无）";
         }
 

@@ -512,6 +512,44 @@ namespace RoomDemo
             soCatWp.ApplyModifiedPropertiesWithoutUndo();
             Debug.Log($"[画板] 猫路点接线完成：{wpFound}/5 个交互点");
 
+            // ---- 17. 边界墙矫正 ----
+            // 四面隐形墙是根物体"GameObject(n)"（只有 BoxCollider2D）。
+            // 上墙的 offset (0.25,-1.03) 是从下墙抄来的，导致碰撞体下坠 1.5 格
+            // 悬在可走区域正上方（y∈[1.22,2.12]），玩家走到 y≈1.6 就撞看不见的墙。
+            // 这里按位置认墙、无条件写死 offset/size，重跑菜单即可修复。
+            var wallFixed = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var box = root.GetComponent<BoxCollider2D>();
+                if (box == null) continue;
+                if (root.GetComponent<Rigidbody2D>() != null) continue;      // Player
+                if (root.GetComponentsInChildren<SpriteRenderer>(true).Length > 0) continue;
+                var p = root.transform.position;
+                if (p.y > 1.5f)
+                {
+                    // 上墙：横贯全宽（x ∈ [-5.86, 5.74]），底缘 2.45——
+                    // 原来只到 x=3.98，右上角留了个逃逸洞（玩家曾溜到 x=6）
+                    box.offset = new Vector2(0.21f, 0.2f);
+                    box.size = new Vector2(11.6f, 0.9f);
+                    wallFixed++;
+                }
+                else if (p.y < -1.5f)
+                {
+                    box.offset = new Vector2(0.25f, -1.03f);
+                    box.size = new Vector2(9.63f, 0.9f);
+                    wallFixed++;
+                }
+                else if (p.x < -4f || p.x > 4f)
+                {
+                    // 侧墙加高到与上墙底缘 (y=2.45) 相接，不留角缝
+                    box.offset = new Vector2(0f, 0.055f);
+                    box.size = new Vector2(1f, 5.69f);
+                    wallFixed++;
+                }
+                EditorUtility.SetDirty(root);
+            }
+            Debug.Log($"[画板] 边界墙矫正完成：{wallFixed}/4 面墙");
+
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
             EditorUtility.SetDirty(systems);

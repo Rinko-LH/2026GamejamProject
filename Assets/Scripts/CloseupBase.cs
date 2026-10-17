@@ -37,7 +37,9 @@ namespace RoomDemo
         Vector3 _roomCamPos;
         float _roomCamSize;
         bool _inputSubscribed;
-        bool _prePlayerActive;
+        // 默认 true：没进过特写就重开（R/ResetRun）时，"恢复主角"不能把主角藏掉——
+        // 默认 false 曾导致 ResetRun 后主角直接 inactive（批 4 复现）。
+        bool _prePlayerActive = true;
 
         protected virtual void OnDestroy()
         {
