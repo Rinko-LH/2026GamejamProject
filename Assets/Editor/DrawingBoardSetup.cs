@@ -1,3 +1,4 @@
+using RoomDemo.Contracts;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -22,6 +23,7 @@ namespace RoomDemo
     ///         Frame  Canvas  BarBg  BarFill
     ///   BrushPickup/
     ///   Dialogue/                 ← 1.5 对话系统（DialogueManager + IMGUI 占位框，第 3 步换 uGUI）
+    ///   ProgressTracker/          ← S0 契约层进度总线（支线 Report → UI/结算订阅）
     ///   TestSnack / TestWater          ← Demo 验收用的吃喝道具（占位纯色图）
     /// GameManager/
     ///
@@ -69,6 +71,21 @@ namespace RoomDemo
             var systems = FindOrCreate("GameSystems");
             var stats = Ensure<PlayerStats>(systems);
             var timer = Ensure<DayTimer>(systems);
+
+            // ---- 1.5 数值对齐（案值，docs/阶段一-变更留档.md §数值重规划） ----
+            // 公开字段的序列化值不会随代码默认值更新，场景里可能还是旧值，
+            // 所以在装配菜单里显式写死案值：饿 0.35 / 水 0.30 / 精神 0.30；
+            // 画画 ×0.5 / 支线 ×1.5；阈值统一 20。改数值只改这里 + PlayerStats 默认值。
+            var soStats = new SerializedObject(stats);
+            soStats.FindProperty("waterDecayPerSec").floatValue = 0.35f;
+            soStats.FindProperty("satietyDecayPerSec").floatValue = 0.30f;
+            soStats.FindProperty("spiritDecayPerSec").floatValue = 0.30f;
+            soStats.FindProperty("drawingDecayScale").floatValue = 0.5f;
+            soStats.FindProperty("sideQuestDecayScale").floatValue = 1.5f;
+            soStats.FindProperty("waterLow").floatValue = 20f;
+            soStats.FindProperty("satietyLow").floatValue = 20f;
+            soStats.FindProperty("spiritLow").floatValue = 20f;
+            soStats.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- 2. 画板（房间里的交互入口） ----
             var boardGo = GameObject.Find("DrawingBoard");
@@ -188,8 +205,9 @@ namespace RoomDemo
                 var soCanvas = new SerializedObject(canvas);
                 soCanvas.FindProperty("canvasWidth").intValue = 512;
                 soCanvas.FindProperty("canvasHeight").intValue = 384;
-                // 注意：达标判定相关参数（paintingSeconds / brushRadius）用脚本默认值，
-                // 不在这里覆盖——否则每次重跑装配都会把调好的手感参数冲掉。
+                // 达标判定参数同理显式写死案值（数值重规划：单幅 60 秒，
+                // 低落时 90 秒由 S8 在 Tick 内部加倍率，不改这个字段）。
+                soCanvas.FindProperty("paintingSeconds").floatValue = 60f;
                 soCanvas.ApplyModifiedPropertiesWithoutUndo();
 
                 // 立刻建好画布纹理并挂到精灵上，进特写前也能看到白纸
@@ -273,11 +291,11 @@ namespace RoomDemo
             EnsureTestConsumable(systems.transform, player, stats, timer,
                 "TestSnack", new Vector3(3.2f, 1.2f, 0f),
                 ConsumablePickup.Effect.Satiety, 20f, 20f,
-                new Color(0.95f, 0.62f, 0.28f), "test_snack");
+                new Color(0.95f, 0.62f, 0.28f), "test_snack", QuestId.Breakfast);
             EnsureTestConsumable(systems.transform, player, stats, timer,
                 "TestWater", new Vector3(-1.6f, 1.2f, 0f),
                 ConsumablePickup.Effect.Water, 20f, 20f,
-                new Color(0.38f, 0.68f, 0.95f), "test_water");
+                new Color(0.38f, 0.68f, 0.95f), "test_water", QuestId.Water);
 
             // ---- 8. 总控 ----
             var managerGo = FindOrCreate("GameManager");
@@ -293,17 +311,27 @@ namespace RoomDemo
             var dialogue = Ensure<DialogueManager>(dialogueGo);
             Ensure<DialogueBoxUI>(dialogueGo);
 
-            // 开场对白占位台词（E2）：Inspector 里随时可改，策划案正文到了直接替换数组
+            // 开场对白占位台词（E2）：Inspector 里随时可改，策划案正文到了直接替换数组。
+            // 叙事引导顺序修正（用户提出"按逻辑不是要先吃早餐吗"）：
+            // 饿 → 妈妈留的早餐 → 吃饱想起画画 → 找画笔，
+            // 和支线表「吃早餐·开场引导」对齐。
             var openingLines = new DialogueLine[]
             {
-                new DialogueLine { text = "唔……早上了。今天要画画来着。", autoAdvance = 3f },
-                new DialogueLine { text = "桌上应该还压着三小幅没画完……", autoAdvance = 3f },
-                new DialogueLine { text = "先把画笔找出来吧——我记得在书房那边。", autoAdvance = 3f },
+                new DialogueLine { text = "唔……早上了，肚子好饿。", autoAdvance = 3f },
+                new DialogueLine { text = "桌上应该有妈妈留的早餐，先垫垫肚子。", autoAdvance = 3f },
+                new DialogueLine { text = "吃饱了。今天要画画来着……", autoAdvance = 3f },
+                new DialogueLine { text = "先把画笔找出来吧——我记得落在书房那边了。", autoAdvance = 3f },
             };
             // 直接字段赋值：DialogueLine[] 是可序列化类数组，用 SerializedProperty
             // 逐个建实例太绕；编辑器代码里拿组件实例直接赋值一样能存盘。
             manager.dialogue = dialogue;
             manager.openingLines = openingLines;
+
+            // ---- 10. 进度总线（契约层 S0） ----
+            // 各支线完成后 Report 到这里，UI 任务提示 / 结算统计统一订阅。
+            // GameManager.Awake 会把它注册进 Services.Progress。
+            var progressGo = EnsureChild(systems.transform, "ProgressTracker");
+            Ensure<ProgressTracker>(progressGo);
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
@@ -391,7 +419,7 @@ namespace RoomDemo
         /// <summary>摆放一个测试用吃喝道具（可重复执行：已存在只补齐组件和引用）。</summary>
         static void EnsureTestConsumable(Transform parent, Transform player, PlayerStats stats, DayTimer timer,
             string objName, Vector3 worldPos, ConsumablePickup.Effect effect, float amount, float costMinutes,
-            Color tint, string spriteName)
+            Color tint, string spriteName, QuestId reportId)
         {
             var go = GameObject.Find(objName);
             if (go == null)
@@ -420,6 +448,7 @@ namespace RoomDemo
             so.FindProperty("costTime").boolValue = true;
             so.FindProperty("costMinutes").floatValue = costMinutes;
             so.FindProperty("interactRange").floatValue = 1.4f;
+            so.FindProperty("reportId").enumValueIndex = (int)reportId;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 

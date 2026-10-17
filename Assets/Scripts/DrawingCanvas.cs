@@ -25,8 +25,8 @@ namespace RoomDemo
         public int canvasHeight = 384;
 
         [Header("达标要求")]
-        [Tooltip("画满多少秒算达标（落笔计时，松开鼠标/切画板会暂停）")]
-        public float paintingSeconds = 15f;
+        [Tooltip("画满多少秒算达标（落笔计时，松开鼠标/切画板会暂停）。数值重规划案：60 秒")]
+        public float paintingSeconds = 60f;
 
         [Header("笔触")]
         public float brushRadius = 7f;
@@ -193,7 +193,7 @@ namespace RoomDemo
         {
             EnsureBuilt();
 
-            // 落笔即开始计时这幅画的 15 秒
+            // 落笔即开始计时这幅画的 60 秒
             if (!TimerStarted && !IsComplete) TimerStarted = true;
 
             var p = new Vector2Int(
@@ -228,13 +228,22 @@ namespace RoomDemo
         /// 推进计时。只有"正在这块画板上落笔"时才该被调用，
         /// 所以计时本身就是实打实的作画时间。
         /// </summary>
+        /// <summary>
+        /// 达标容差（秒）。浮点累加（真实 dt 或定值 tick）可能差一丝到不了达标线
+        /// ——float32 在 32~64 区间的 ULP 约 3.8e-6，1200 次累加误差可达 1e-3，
+        /// 不容差的话进度条会卡在 99.99% 永远差一丝。10ms 对 60 秒的作画无感知。
+        /// </summary>
+        const float CompletionEpsilon = 0.01f;
+
         public void Tick(float dt)
         {
             if (IsComplete || !TimerStarted || dt <= 0f) return;
 
-            ElapsedSeconds = Mathf.Min(paintingSeconds, ElapsedSeconds + dt);
-            if (ElapsedSeconds >= paintingSeconds)
+            ElapsedSeconds += dt;
+            if (ElapsedSeconds >= paintingSeconds - CompletionEpsilon)
             {
+                // 吸附到达标线：容差内一律视为画满，进度/剩余秒数显示归零
+                ElapsedSeconds = paintingSeconds;
                 IsComplete = true;
                 Completed?.Invoke(this);
             }

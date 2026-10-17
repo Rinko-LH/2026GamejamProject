@@ -1,3 +1,4 @@
+using RoomDemo.Contracts;
 using RoomDemo.Input;
 using UnityEngine;
 
@@ -10,11 +11,11 @@ namespace RoomDemo
     /// - 进入画板是<b>桌面特写俯视</b>视角（不是第一人称平视）；
     /// - <b>需要先拿到画笔</b>才能画；
     /// - 特写里<b>三块画板并排</b>，每块画一幅，各画各的；
-    /// - 完成判定是<b>计时</b>：每块画板落笔起 15 秒，画满即达标；
+    /// - 完成判定是<b>计时</b>：每块画板落笔起 60 秒，画满即达标（数值重规划案）；
     /// - 达标<b>只是标记</b>（外框变绿），不锁画、不强制切换，
     ///   玩家可以继续改，也可以用鼠标直接换到另一块画板上画。
     /// </summary>
-    public class DrawingBoardInteract : MonoBehaviour
+    public class DrawingBoardInteract : MonoBehaviour, IResettable
     {
         [Header("引用")]
         [Tooltip("主角。只用到它的位置和显隐，不要求特定控制器。")]
@@ -60,6 +61,7 @@ namespace RoomDemo
         float _roomCamSize;
         bool _inCloseup;
         PlayerStats _stats;
+        float _paintingSeconds;
 
         // 记录进入特写前的房间状态，退出时还原
         bool _preRoomPlayerActive;
@@ -70,6 +72,13 @@ namespace RoomDemo
 
         /// <summary>总幅数。</summary>
         public int TotalPaintings => boards != null ? boards.Length : 0;
+
+        /// <summary>
+        /// 本局实际下笔累计秒数（IGameFlow.PaintingSeconds 的数据源）。
+        /// 口径：只累计真正落笔的 dt，低落倍率不进来（S8 的倍率在
+        /// DrawingCanvas.Tick 内部消化），退出特写自动暂停。
+        /// </summary>
+        public float PaintingSeconds => _paintingSeconds;
 
         /// <summary>已达标幅数。</summary>
         public int CompletedCount
@@ -235,7 +244,18 @@ namespace RoomDemo
 
             if (!hasBrush)
             {
-                Debug.Log("[画板] 「奇怪，画笔怎么不见了，应该是落在房间某处了吧」");
+                // 没画笔的反馈走对话系统（策划案 4.1：提示画笔位置）。
+                // 正在播别的台词时不抢队列，避免把当前对白顶掉。
+                if (Services.Dialogue == null || !Services.Dialogue.IsPlaying)
+                {
+                    var line = new DialogueLine
+                    {
+                        speaker = "",
+                        text = "奇怪，画笔怎么不见了，应该是落在房间某处了吧",
+                        autoAdvance = 3f
+                    };
+                    Services.Dialogue?.Play(new[] { line });
+                }
                 return false;
             }
 
@@ -350,9 +370,11 @@ namespace RoomDemo
                 if (target != null)
                 {
                     target.canvas.DrawAt(canvasPos);
-                    // 落笔才计时：15 秒是实打实的作画时间，
+                    // 落笔才计时：60 秒是实打实的作画时间，
                     // 松开鼠标或换到别的画板，这块的计时就暂停。
                     target.canvas.Tick(Time.deltaTime);
+                    // 同一口径累计到局计数（契约 IGameFlow.PaintingSeconds）
+                    _paintingSeconds += Time.deltaTime;
                 }
             }
             else
@@ -563,6 +585,15 @@ namespace RoomDemo
             if (boards == null) return;
             foreach (var b in boards)
                 if (b != null) b.ResetBoard();
+        }
+
+        /// <summary>R 重开时整体复位（IResettable）：退特写、收画笔、清画板、计时归零。</summary>
+        public void ResetForNewRun()
+        {
+            if (_inCloseup) ExitPaintingMode();
+            hasBrush = false;
+            _paintingSeconds = 0f;
+            ResetBoards();
         }
 
         /// <summary>给玩家发画笔（由找画笔流程调用）。</summary>

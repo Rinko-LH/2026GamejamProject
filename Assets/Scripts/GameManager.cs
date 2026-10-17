@@ -1,14 +1,13 @@
 using System;
+using RoomDemo.Contracts;
 using RoomDemo.Input;
 using UnityEngine;
 
 namespace RoomDemo
 {
     /// <summary>游戏流程状态机（策划案 1.1）：开场独白 → 自由探索 → 结算。全局单例，驱动一天的开始与结束。</summary>
-    public class GameManager : MonoBehaviour
+    public class GameManager : MonoBehaviour, IGameFlow
     {
-        public enum GameFlowState { Opening, Exploring, Settlement }
-
         public static GameManager Instance { get; private set; }
         public GameFlowState State { get; private set; } = GameFlowState.Opening;
 
@@ -47,11 +46,32 @@ namespace RoomDemo
             if (timer == null) timer = FindObjectOfType<DayTimer>();
             if (board == null) board = FindObjectOfType<DrawingBoardInteract>();
             if (dialogue == null) dialogue = FindObjectOfType<DialogueManager>();
+
+            // 契约注册（S0）：跨系统交互只认 Services.Xxx，不互相 FindObjectOfType。
+            // 进度总线找不到就兜底建一个，保证支线 Report 不炸。
+            Services.Stats = stats;
+            Services.Flow = this;
+            Services.Dialogue = dialogue;
+            var progress = FindObjectOfType<ProgressTracker>();
+            if (progress == null)
+            {
+                var progressGo = new GameObject("ProgressTracker");
+                progress = progressGo.AddComponent<ProgressTracker>();
+            }
+            Services.Progress = progress;
         }
 
         void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (Instance == this)
+            {
+                Instance = null;
+                // 契约反注册：切场景/卸载时别让别的系统拿到 stale 引用
+                Services.Stats = null;
+                Services.Flow = null;
+                Services.Dialogue = null;
+                Services.Progress = null;
+            }
             Unsubscribe();
         }
 
@@ -164,11 +184,47 @@ namespace RoomDemo
             paintingsCompleted++;
             int total = board != null ? board.TotalPaintings : 3;
             Debug.Log($"[画板] 第 {index} 幅达标（{paintingsCompleted}/{total}）");
+
+            // 策划案核心循环第 4 条：三幅全部完成即可提前结算。
+            // （不提前的话 3×60s=180s 占 480s 只有 37.5%，永远够不到专注结局
+            // 的 60% 线——数值重规划案已把这条补上，占比分母改为实际当局时长。）
+            if (board != null && board.AllComplete)
+            {
+                if (board.IsPaintingMode) board.ExitPaintingMode(); // 先回房间再结算
+                EndDay();
+            }
         }
+
+        // ---------- IGameFlow（契约层 S0） ----------
+        // 结局判定（5.2）/ 结算（5.3）只读这些成员，不直接碰 GameManager 字段。
+
+        /// <summary>已完成画作数（画作计数只此一处，支线进度不走这里，防双轨）。</summary>
+        public int PaintingsCompleted => paintingsCompleted;
+
+        /// <summary>本局实际下笔累计秒数（数据源在 DrawingBoardInteract）。</summary>
+        public float PaintingSeconds => board != null ? board.PaintingSeconds : 0f;
+
+        /// <summary>
+        /// 当局实际流逝秒数（提前结算后 = 专注占比的分母）。
+        /// 注意不是 roundSeconds：三幅画完提前结算时分母要跟着缩。
+        /// </summary>
+        public float DayElapsedSeconds =>
+            timer != null ? Mathf.Max(0f, timer.roundSeconds - timer.RemainingSeconds) : 0f;
 
         [ContextMenu("重置整局")]
         public void ResetRun()
         {
+            // 进度总线清零（画作走 PaintingsCompleted，支线走 Progress，双轨已拆开）
+            if (Services.Progress != null) Services.Progress.ResetAll();
+
+            // 统一重置：遍历场景内所有 IResettable（含未激活物体）。
+            // 修复两个既有 bug：吃喝道具 SetActive(false) 后不复活、
+            // 画笔拿走不归还（BrushPickup.ResetPickup 从来没人调）。
+            foreach (var mb in FindObjectsOfType<MonoBehaviour>(true))
+            {
+                if (mb is IResettable r) r.ResetForNewRun();
+            }
+
             paintingsCompleted = 0;
             if (stats != null) stats.ResetStats();
             if (board != null) board.ResetBoards();
@@ -180,9 +236,15 @@ namespace RoomDemo
         // 游戏内时钟、剩余秒数、进度条、状态值打出来，方便手动验收。
         // 正式 UI（状态栏/时钟/结局界面）做好后，OnGUI + HudText 可整段删除。
 
+        /// <summary>
+        /// 调试 HUD 是否该显示。正式 UI（S1）上线后按状态收敛：
+        /// 结算界面起来时调试 HUD 让位，避免两套面板叠在一起。
+        /// </summary>
+        public bool ShouldShowHud => showDebugHud && State != GameFlowState.Settlement;
+
         void OnGUI()
         {
-            if (!showDebugHud) return;
+            if (!ShouldShowHud) return;
 
             const float pad = 14f;
             const float lineH = 28f;

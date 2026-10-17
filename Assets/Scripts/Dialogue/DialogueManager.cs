@@ -1,4 +1,5 @@
 using System;
+using RoomDemo.Contracts;
 using RoomDemo.Input;
 using UnityEngine;
 
@@ -31,7 +32,7 @@ namespace RoomDemo
     ///
     /// 订阅用惰性模式（Instance 可能比消费方晚就绪），与 GameManager 同一套时序兜底。
     /// </summary>
-    public class DialogueManager : MonoBehaviour
+    public class DialogueManager : MonoBehaviour, IDialogueService
     {
         public static DialogueManager Instance { get; private set; }
 

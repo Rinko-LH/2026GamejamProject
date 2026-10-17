@@ -1,4 +1,5 @@
 using System;
+using RoomDemo.Contracts;
 using UnityEngine;
 
 namespace RoomDemo
@@ -70,7 +71,7 @@ namespace RoomDemo
     /// 另外策划案明确说了状态过低不判失败，而是"完成画画需要的时间变长"，
     /// 所以这里不提供 Fail 事件，只提供 IsLow 供画画玩法查询。
     /// </summary>
-    public class PlayerStats : MonoBehaviour
+    public class PlayerStats : MonoBehaviour, IStatSource
     {
         [Header("初始值")]
         public float startWater = 50f;
@@ -78,20 +79,24 @@ namespace RoomDemo
         public float startSpirit = 50f;
 
         [Header("每秒衰减（正常状态）")]
+        // 数值重规划案（docs/阶段一-变更留档.md §数值重规划）：
+        // 饿 0.35 / 水 0.30 / 精神 0.30；初值 50/20/50；阈值统一 20。
         public float waterDecayPerSec = 0.35f;
         public float satietyDecayPerSec = 0.30f;
-        public float spiritDecayPerSec = 0.25f;
+        public float spiritDecayPerSec = 0.30f;
 
         [Header("衰减倍率")]
+        // 画画 ×0.5（慢）/ 支线 ×1.5（快）/ 平时 ×1.0
         [Tooltip("画画时的衰减倍率，策划案要求更慢")]
-        public float drawingDecayScale = 0.35f;
+        public float drawingDecayScale = 0.5f;
         [Tooltip("做支线时的衰减倍率，策划案要求更快")]
-        public float sideQuestDecayScale = 1.6f;
+        public float sideQuestDecayScale = 1.5f;
 
         [Header("过低阈值")]
+        // 三项统一 20（低落机制触发线）；10 以下为告急线（AllCritical）
         public float waterLow = 20f;
         public float satietyLow = 20f;
-        public float spiritLow = 25f;
+        public float spiritLow = 20f;
 
         /// <summary>当前所处的活动类型，决定衰减倍率。</summary>
         public enum Activity { Idle, Drawing, SideQuest }
@@ -101,6 +106,9 @@ namespace RoomDemo
         public StatChannel Spirit { get; private set; }
 
         public Activity CurrentActivity { get; private set; } = Activity.Idle;
+
+        /// <summary>上一次的低落状态，用于 LowMoodChanged 跨越检测。</summary>
+        bool _wasLowMood;
 
         /// <summary>任意一项变化时触发，参数是被改动的那一项。</summary>
         public event Action<StatChannel> AnyChanged;
@@ -137,6 +145,14 @@ namespace RoomDemo
         void OnChannelChanged(StatChannel ch)
         {
             AnyChanged?.Invoke(ch);
+
+            // 跨过低落阈值（任一 <20%）时派发一次，供低落机制（5.4）做边缘触发
+            bool low = IsLowMood;
+            if (low != _wasLowMood)
+            {
+                _wasLowMood = low;
+                LowMoodChanged?.Invoke(low);
+            }
         }
 
         void Update()
@@ -180,20 +196,39 @@ namespace RoomDemo
             }
         }
 
-        /// <summary>
-        /// 综合状态系数（0.5 ~ 1.0），用于给画画难度加成。
-        /// 三项都健康时接近 1.0，有项过低时下降，最低 0.5。
-        /// </summary>
-        public float ConditionFactor
+        // ---------- IStatSource（契约层 S0） ----------
+        // 低落机制形态按数值重规划案定：不再用"综合系数"平滑打折，
+        // 而是 IsLowMood 阈值开关 + 三处乘数（画画耗时 ×1.5 / 移速 -20% /
+        // 画面去饱和），由 S7/S8 消费。ConditionFactor 随之删除——
+        // 全项目无消费方，留着会和新的阈值开关机制自相矛盾。
+
+        public float WaterValue => Water != null ? Water.Value : 0f;
+        public float SatietyValue => Satiety != null ? Satiety.Value : 0f;
+        public float SpiritValue => Spirit != null ? Spirit.Value : 0f;
+
+        /// <summary>任一低于 20%（低落机制触发线）。</summary>
+        public bool IsLowMood =>
+            (Water != null && Water.IsLow) ||
+            (Satiety != null && Satiety.IsLow) ||
+            (Spirit != null && Spirit.IsLow);
+
+        /// <summary>三项全部低于 10%（低落结局线）。</summary>
+        public bool AllCritical =>
+            (Water != null && Water.Value < 10f) &&
+            (Satiety != null && Satiety.Value < 10f) &&
+            (Spirit != null && Spirit.Value < 10f);
+
+        public event Action<bool> LowMoodChanged;
+
+        /// <summary>恢复/扣减状态。支线（早餐/收拾/接水）一律走这里。</summary>
+        public void Add(StatKind kind, float delta)
         {
-            get
+            EnsureChannels();
+            switch (kind)
             {
-                EnsureChannels();
-                float f = 1f;
-                if (Water.IsLow) f -= 0.2f;
-                if (Satiety.IsLow) f -= 0.2f;
-                if (Spirit.IsLow) f -= 0.2f;
-                return Mathf.Clamp(f, 0.5f, 1f);
+                case StatKind.Water: Water.Add(delta); break;
+                case StatKind.Satiety: Satiety.Add(delta); break;
+                default: Spirit.Add(delta); break;
             }
         }
 
