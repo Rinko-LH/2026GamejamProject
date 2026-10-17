@@ -237,6 +237,8 @@ namespace RoomDemo
                 // 达标判定参数同理显式写死案值（数值重规划：单幅 60 秒，
                 // 低落时 90 秒由 S8 在 Tick 内部加倍率，不改这个字段）。
                 soCanvas.FindProperty("paintingSeconds").floatValue = 60f;
+                // S7 低落作画减速：低落时效率 1/1.5，60s 达标线变 90s 真实时间
+                soCanvas.FindProperty("lowMoodScale").floatValue = 1.5f;
                 soCanvas.ApplyModifiedPropertiesWithoutUndo();
 
                 // 立刻建好画布纹理并挂到精灵上，进特写前也能看到白纸
@@ -560,6 +562,25 @@ namespace RoomDemo
             Ensure<RoomDemo.Ending.SettlementUI>(settleGo);
             EnsureUiHost(settleGo, new Vector2(0.5f, 0.5f)); // 居中零尺寸宿主，面板自建 1920×1080 全屏 Root
             Debug.Log("[画板] 结局判定 + 结算面板就位（S9/S10）");
+
+            // ---- 19. 低落表现（S8，策划案 5.4） ----
+            // MoodFeedback 挂 GameSystems：去饱和全屏 Image（UIRoot 宿主下自建，
+            // raycastTarget=false）+ 玩家头侧气泡（玩家子物体自动跟随，特写随藏）。
+            // 玩家/宿主引用装配注入（规范禁止运行时查找）；移速 -20% 由
+            // Simple2DMovement 经 Services.Stats.IsLowMood 自查，不在这里接。
+            var moodGo = EnsureChild(systems.transform, "MoodFeedback");
+            var mood = Ensure<RoomDemo.Mood.MoodFeedback>(moodGo);
+            var overlayGo = EnsureChild(uiRoot.transform, "MoodOverlay");
+            EnsureUiHost(overlayGo, new Vector2(0.5f, 0.5f));
+            // 去饱和盖 HUD 但不盖结算面板：挪到 SettlementPanel 的前一个位置
+            overlayGo.transform.SetSiblingIndex(settleGo.transform.GetSiblingIndex());
+            var soMood = new SerializedObject(mood);
+            soMood.FindProperty("overlayHost").objectReferenceValue = overlayGo.GetComponent<RectTransform>();
+            soMood.FindProperty("bubbleAnchor").objectReferenceValue = player;
+            soMood.FindProperty("fadeSeconds").floatValue = 1f;
+            soMood.FindProperty("maxAlpha").floatValue = 0.55f;
+            soMood.ApplyModifiedPropertiesWithoutUndo();
+            Debug.Log("[画板] 低落表现就位（S8：去饱和 + 气泡；移速 -20% 在移动脚本内自查）");
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);

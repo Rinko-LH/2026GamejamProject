@@ -30,6 +30,15 @@ namespace RoomDemo.UI
         {
             Build();
             if (timer == null) return;
+
+            // 结算态时钟让位：结算面板呈现最终局面，顶部再挂个
+            // 「剩余 480s/0s」只有干扰（R 重开后显示值也不对）。
+            var flow = RoomDemo.Contracts.Services.Flow;
+            bool settle = flow != null && flow.State == RoomDemo.GameFlowState.Settlement;
+            if (_label.gameObject.activeSelf == settle)
+                _label.gameObject.SetActive(!settle);
+            if (settle) return;
+
             _label.text = $"时钟 {timer.ClockText}　剩余 {Mathf.CeilToInt(timer.RemainingSeconds)}s";
         }
     }

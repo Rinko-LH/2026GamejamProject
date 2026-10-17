@@ -1,4 +1,5 @@
 using System;
+using RoomDemo.Contracts;
 using UnityEngine;
 
 namespace RoomDemo
@@ -27,6 +28,10 @@ namespace RoomDemo
         [Header("达标要求")]
         [Tooltip("画满多少秒算达标（落笔计时，松开鼠标/切画板会暂停）。数值重规划案：60 秒")]
         public float paintingSeconds = 60f;
+
+        [Header("低落惩罚（S7，策划案 5.4）")]
+        [Tooltip("低落（任一状态<20%）时作画效率 = 1/该值：60s 达标线需要 90s 真实时间。倍率内化在 Tick 里，不动调用点")]
+        public float lowMoodScale = 1.5f;
 
         [Header("笔触")]
         public float brushRadius = 7f;
@@ -239,7 +244,13 @@ namespace RoomDemo
         {
             if (IsComplete || !TimerStarted || dt <= 0f) return;
 
-            ElapsedSeconds += dt;
+            // S7 低落机制：低落时每秒真实时间只推进 1/1.5 的作画进度——
+            // 达标线仍是 60s（进度条语义不变），但真实耗时变成 90s。
+            // 只在这里内化倍率：调用点（DBI）传的是原始 dt，PaintingSeconds
+            // 统计口径不受倍率污染（契约明文）。
+            var stats = Services.Stats;
+            bool low = stats != null && stats.IsLowMood;
+            ElapsedSeconds += dt / (low ? Mathf.Max(1f, lowMoodScale) : 1f);
             if (ElapsedSeconds >= paintingSeconds - CompletionEpsilon)
             {
                 // 吸附到达标线：容差内一律视为画满，进度/剩余秒数显示归零

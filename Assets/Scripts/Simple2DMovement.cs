@@ -41,7 +41,11 @@ namespace RoomDemo
             EnsureRb();
             var move = InputManager.Instance != null ? InputManager.Instance.Move : Vector2.zero;
             var dir = new Vector3(move.x, move.y, 0f).normalized;
-            _rb.MovePosition(_rb.position + (Vector2)(dir * moveSpeed * Time.fixedDeltaTime));
+            // S8 低落表现：状态低落（任一 <20%）时移速 -20%，经契约层自查
+            float speed = moveSpeed;
+            var stats = RoomDemo.Contracts.Services.Stats;
+            if (stats != null && stats.IsLowMood) speed *= 0.8f;
+            _rb.MovePosition(_rb.position + (Vector2)(dir * speed * Time.fixedDeltaTime));
         }
     }
 }
