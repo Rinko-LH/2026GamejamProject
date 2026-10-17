@@ -143,8 +143,17 @@ namespace RoomDemo
             {
                 boardSr = boardGo.AddComponent<SpriteRenderer>();
                 boardSr.sortingOrder = OrderBoardMarker;
-                boardGo.transform.localScale = new Vector3(1.6f, 1.1f, 1f);
             }
+            // X 位置是<b>玩法参数</b>不是美术参数：交互只看水平距离，
+            // 站到两个交互物 X 区间的重叠处按一次 E 会同时触发两件东西
+            // （比如同时进接水特写和收拾特写）。所以这里无条件写死，
+            // 与早餐 / 桌面 / 水源 / 书架统一按 2.0 间距排开。
+            // 美术要微调画架外观请动 Y / Z 或子物体，别改这个 X。
+            boardGo.transform.position = new Vector3(0f, 1.6f, 0f);
+            boardGo.transform.localScale = new Vector3(1.6f, 1.1f, 1f);
+            // 纸白占位，美术出手绘前至少能看见桌上有块画板（P1）
+            if (boardSr.sprite == null)
+                boardSr.sprite = MakePlaceholderSprite("board", new Color(0.93f, 0.91f, 0.86f));
 
             // ---- 4. 交互提示组件 ----
             // 画板节点原本只是个空壳，玩家看不见也摸不着，
@@ -157,7 +166,7 @@ namespace RoomDemo
             var hint = boardGo.GetComponent<InteractionHint>();
             if (hint == null) hint = boardGo.AddComponent<InteractionHint>();
             hint.player = player;
-            hint.triggerRange = 1.6f;
+            hint.triggerRange = 1.2f;   // 与 DrawingBoardInteract.interactRange 一致
 
             var soHint = new SerializedObject(hint);
             var hintTargets = soHint.FindProperty("highlightTargets");
@@ -250,6 +259,8 @@ namespace RoomDemo
             so.FindProperty("boardMarker").objectReferenceValue = boardSr;
             so.FindProperty("hint").objectReferenceValue = hint;
             so.FindProperty("mainCamera").objectReferenceValue = FindOrthoCamera();
+            // 交互区间 1.2：与两侧（桌面 -2.2 / 水源 2.2）刚好错开，不重叠
+            so.FindProperty("interactRange").floatValue = 1.2f;
 
             // 房间手绘图根节点（T0.3：进特写时整体隐藏房间）。找不到只跳过不阻断。
             var roomWorld = GameObject.Find("RoomWorld");
@@ -258,14 +269,28 @@ namespace RoomDemo
 
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            // ---- 7. 画笔 ----
+            // ---- 7. 画笔（S6：藏在书架里，整理书架后才出现） ----
+            // 挂 RoomWorld 下：进收拾/接水特写时随房间一起隐藏，
+            // 否则画笔会穿帮出现在特写画面里（客厅道具一律挂房间）。
+            var roomWorldForItems = GameObject.Find("RoomWorld");
+            var itemParent = roomWorldForItems != null ? roomWorldForItems.transform : systems.transform;
             var brushGo = GameObject.Find("BrushPickup");
             if (brushGo == null)
             {
                 brushGo = new GameObject("BrushPickup");
-                brushGo.transform.position = new Vector3(-3.4f, 1.2f, 0f);
-                brushGo.transform.SetParent(systems.transform, false);
+                brushGo.transform.SetParent(itemParent, false);
             }
+            else if (brushGo.transform.parent != itemParent)
+            {
+                // 旧装配挂在 GameSystems 下，这里搬过去（保留世界坐标）
+                brushGo.transform.SetParent(itemParent, true);
+            }
+            // 摆在书架上（与 TidyShelf 同一个 X）：X 区间重叠本来会导致
+            // 一次 E 同时触发两件东西，但书架收拾完成后 canInteract 会置 false，
+            // 二者不会同时可交互——正好就是"整理完书架，笔露出来了"。
+            brushGo.transform.position = new Vector3(4.2f, 1.75f, 0f);
+            brushGo.transform.localScale = new Vector3(0.14f, 0.5f, 1f);
+
             var brush = Ensure<BrushPickup>(brushGo);
             var brushSr = brushGo.GetComponent<SpriteRenderer>();
             if (brushSr == null)
@@ -273,17 +298,23 @@ namespace RoomDemo
                 brushSr = brushGo.AddComponent<SpriteRenderer>();
                 brushSr.sortingOrder = OrderBrush;
             }
-            brushGo.transform.localScale = new Vector3(0.12f, 0.45f, 1f);
+            // 木杆色占位，细长条远看就是一支笔（P1：原先画笔画板都是 sprite=NULL）
+            if (brushSr.sprite == null)
+                brushSr.sprite = MakePlaceholderSprite("brush", new Color(0.88f, 0.52f, 0.30f));
 
             var soBrush = new SerializedObject(brush);
             soBrush.FindProperty("player").objectReferenceValue = player;
             soBrush.FindProperty("board").objectReferenceValue = interact;
+            soBrush.FindProperty("interactRange").floatValue = 1.0f;
+            soBrush.FindProperty("startHidden").boolValue = true;
+            soBrush.FindProperty("revealOnQuestId").enumValueIndex = (int)QuestId.TidyShelf;
 
-            // 视觉体收集交给 sprites 数组。
-            // 注意：必须和上面的引用放在同一个 SerializedObject 里一次性 apply——
+            // 视觉体数组必须和上面的引用放在同一个 SerializedObject 里一次性 apply——
             // 旧版先 apply 再设这个数组且没有二次 apply，结果数组永远是空的，
             // 拿到画笔后那个色块不会消失。
-            var visuals = soBrush.FindProperty("visualsToHide");
+            // 改名 visualsToHide → visuals，因为它现在两头都要用：
+            // 被发现时点亮、被拾取时熄灭。
+            var visuals = soBrush.FindProperty("visuals");
             visuals.arraySize = 1;
             visuals.GetArrayElementAtIndex(0).objectReferenceValue = brushSr;
             soBrush.ApplyModifiedPropertiesWithoutUndo();
@@ -299,19 +330,17 @@ namespace RoomDemo
             targets.GetArrayElementAtIndex(0).objectReferenceValue = brushSr;
             brushHintTargets.ApplyModifiedPropertiesWithoutUndo();
 
-            // ---- 7.5 测试用吃喝道具 ----
-            // Demo 验收专用：手绘场景没有占位图，这里用编辑器生成的纯色 PNG
-            // 当可见道具。靠近按 E 拾取 → 状态值回补 + 倒计时按倍率扣除
-            // （20 游戏分钟 = 10 真实秒，正好能在 HUD 上看到剩余秒数跳减）。
-            // 正式支线玩法做好后，本节和 Placeholders 目录可整个删掉。
-            EnsureTestConsumable(systems.transform, player, stats, timer,
-                "TestSnack", new Vector3(3.2f, 1.2f, 0f),
-                ConsumablePickup.Effect.Satiety, 20f, 20f,
-                new Color(0.95f, 0.62f, 0.28f), "test_snack", QuestId.Breakfast);
-            EnsureTestConsumable(systems.transform, player, stats, timer,
-                "TestWater", new Vector3(-1.6f, 1.2f, 0f),
-                ConsumablePickup.Effect.Water, 20f, 20f,
-                new Color(0.38f, 0.68f, 0.95f), "test_water", QuestId.Water);
+            // ---- 7.5 吃早餐（S5，策划案 3.4） ----
+            // 正式支线替代 Demo 道具：饱食 +50 / 15 游戏分钟 / 上报 Breakfast。
+            // 原 TestSnack / TestWater 两个临时道具直接删除——
+            // 喝水已由 S4 的接水特写（WaterSource → WaterCloseup）正式接管，
+            // 留着会和它重复给 +20 水分，且占掉两个 X 位置导致 E 键误触发。
+            DeleteLegacy("TestSnack");
+            DeleteLegacy("TestWater");
+            // 早餐挂 RoomWorld 下（客厅道具随房间隐藏，不穿帮进特写）
+            var roomWorldForBreakfast = GameObject.Find("RoomWorld");
+            EnsureBreakfast(roomWorldForBreakfast != null ? roomWorldForBreakfast.transform : systems.transform,
+                player, stats, timer, new Vector3(-4.2f, 1.0f, 0f));
 
             // ---- 8. 总控 ----
             var managerGo = FindOrCreate("GameManager");
@@ -403,11 +432,13 @@ namespace RoomDemo
             if (catGo == null)
             {
                 catGo = new GameObject("Cat");
-                // 右侧猫角；重跑菜单不覆盖美术已调好的位置（只在新建时摆位）
-                catGo.transform.position = new Vector3(3.6f, 0.5f, 0f);
                 catGo.transform.SetParent(catParent, true);
                 catGo.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
             }
+            // 位置无条件写死：猫的游走是以<b>这个位置为锚点</b>的（wanderRadius），
+            // 播放态下猫走到哪儿，退出播放后位置若被留下来，下次开场猫就会
+            // 在房间角落/家具里游走。所以每次装配都把它放回房间中间。
+            catGo.transform.position = new Vector3(1.4f, -0.9f, 0f);
             var cat = Ensure<CatController>(catGo);
             var catSr = catGo.GetComponent<SpriteRenderer>();
             if (catSr == null)
@@ -432,16 +463,19 @@ namespace RoomDemo
             var tidyParent = roomWorldGo != null ? roomWorldGo.transform : systems.transform;
             var cam = FindOrthoCamera();
             var tidyCloseup = EnsureTidyCloseup(systems.transform, cam,
-                roomWorldGo != null ? roomWorldGo.transform : null);
-            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyDesk", new Vector3(-2.6f, 0.9f, 0f), QuestId.TidyDesk);
-            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyShelf", new Vector3(2.4f, 1.1f, 0f), QuestId.TidyShelf);
+                roomWorldGo != null ? roomWorldGo.transform : null, player);
+            // 注意：X 位置一律按 2.0 间距排开（早餐 -4.2 / 桌面 -2.2 / 画板 0 /
+            // 水源 2.2 / 书架 4.2），彼此的交互区间互不重叠——
+            // 否则站中间按一次 E 会同时触发两件东西。
+            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyDesk", new Vector3(-2.2f, 0.9f, 0f), QuestId.TidyDesk);
+            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyShelf", new Vector3(4.2f, 1.1f, 0f), QuestId.TidyShelf);
 
             // ---- 13b. 接水特写（S4，策划案 2.2） ----
             // 与收拾特写共用 CloseupBase（隐藏客厅 / 相机 / 总闸门 / Esc / IResettable）。
             // 走到水源按 E 进入，按住鼠标接水，满则 +20 水分 / 扣 15 游戏分钟 / 上报 Water。
             var waterCloseup = EnsureWaterCloseup(systems.transform, cam,
-                roomWorldGo != null ? roomWorldGo.transform : null, stats, timer);
-            EnsureWaterSource(tidyParent, player, waterCloseup, new Vector3(0.3f, 0.8f, 0f));
+                roomWorldGo != null ? roomWorldGo.transform : null, stats, timer, player);
+            EnsureWaterSource(tidyParent, player, waterCloseup, new Vector3(2.2f, 0.8f, 0f));
 
             // ---- 14. 客厅布景 ----
             // 让客厅不再是"深蓝底 + 浮空棕块"：加墙 / 地板 / 窗 / 地毯 / 装饰。
@@ -545,40 +579,63 @@ namespace RoomDemo
             return c;
         }
 
-        /// <summary>摆放一个测试用吃喝道具（可重复执行：已存在只补齐组件和引用）。</summary>
-        static void EnsureTestConsumable(Transform parent, Transform player, PlayerStats stats, DayTimer timer,
-            string objName, Vector3 worldPos, ConsumablePickup.Effect effect, float amount, float costMinutes,
-            Color tint, string spriteName, QuestId reportId)
+        /// <summary>删掉被正式支线取代的 Demo 遗留物体（可重复执行，找不到就跳过）。</summary>
+        static void DeleteLegacy(string objName)
         {
             var go = GameObject.Find(objName);
+            if (go == null) return;
+            Object.DestroyImmediate(go);
+            Debug.Log($"[画板] 已删除 Demo 遗留物体 {objName}（正式支线已接管）");
+        }
+
+        /// <summary>
+        /// 摆放早餐（S5，策划案 3.4：客厅 · 饥饿 +50% · 开场引导）。
+        /// 复用 ConsumablePickup，只是把数值和上报 id 换成正式支线的。
+        /// </summary>
+        static void EnsureBreakfast(Transform parent, Transform player, PlayerStats stats, DayTimer timer,
+            Vector3 worldPos)
+        {
+            var go = GameObject.Find("Breakfast");
             if (go == null)
             {
-                go = new GameObject(objName);
-                go.transform.position = worldPos;
+                go = new GameObject("Breakfast");
                 go.transform.SetParent(parent, true); // 保留世界坐标
             }
+            else if (go.transform.parent != parent)
+            {
+                // 旧装配挂在 GameSystems 下 → 搬到 RoomWorld，随房间一起隐藏
+                go.transform.SetParent(parent, true);
+            }
+            go.transform.position = worldPos;
+            go.transform.localScale = new Vector3(0.7f, 0.55f, 1f);
 
             var cp = Ensure<ConsumablePickup>(go);
             var sr = go.GetComponent<SpriteRenderer>();
             if (sr == null)
             {
                 sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = MakePlaceholderSprite(spriteName, tint);
                 sr.sortingOrder = OrderBrush;
             }
-            go.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
+            if (sr.sprite == null)
+                sr.sprite = MakePlaceholderSprite("breakfast", new Color(0.96f, 0.80f, 0.48f));
 
             var so = new SerializedObject(cp);
             so.FindProperty("player").objectReferenceValue = player;
             so.FindProperty("stats").objectReferenceValue = stats;
             so.FindProperty("timer").objectReferenceValue = timer;
-            so.FindProperty("effect").enumValueIndex = (int)effect;
-            so.FindProperty("amount").floatValue = amount;
+            so.FindProperty("effect").enumValueIndex = (int)ConsumablePickup.Effect.Satiety;
+            so.FindProperty("amount").floatValue = 50f;
             so.FindProperty("costTime").boolValue = true;
-            so.FindProperty("costMinutes").floatValue = costMinutes;
-            so.FindProperty("interactRange").floatValue = 1.4f;
-            so.FindProperty("reportId").enumValueIndex = (int)reportId;
+            so.FindProperty("costMinutes").floatValue = 15f;
+            so.FindProperty("interactRange").floatValue = 1.0f;
+            so.FindProperty("reportId").enumValueIndex = (int)QuestId.Breakfast;
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            cp.lines = new DialogueLine[]
+            {
+                new DialogueLine { text = "吃了妈妈留的早餐，肚子终于不叫了。", autoAdvance = 3f }
+            };
+            EditorUtility.SetDirty(cp);
         }
 
         /// <summary>摆放一个收拾点（可重复执行：已存在只补齐组件和引用、不覆盖美术参数）。</summary>
@@ -589,9 +646,10 @@ namespace RoomDemo
             if (go == null)
             {
                 go = new GameObject(objName);
-                go.transform.position = worldPos;
                 go.transform.SetParent(parent, true); // 保留世界坐标
             }
+            // X 无条件写死：交互只看水平距离，X 挤在一起会导致一次 E 触发多件东西。
+            go.transform.position = worldPos;
 
             var spot = Ensure<RoomDemo.Quest.TidySpot>(go);
 
@@ -622,18 +680,23 @@ namespace RoomDemo
             spot.effect = StatKind.Spirit;
             spot.amount = 20f;
             spot.itemCount = 3;      // 杂物数量（实际视觉在收拾特写里）
-            spot.interactRange = 1.4f;
+            spot.interactRange = 1.0f;
             spot.itemsRoot = null;   // 房间侧不再有杂物（在特写里）
             spot.highlight = null;   // 房间侧不再有高亮（在特写里）
             spot.closeup = closeup;
-            spot.lines = new DialogueLine[]
-            {
-                new DialogueLine
+            // 书架的台词第二行就是「发现画笔」的提示（S6）：
+            // 收拾完成 → TidyShelf 上报 → 画笔收到进度事件自己显形，
+            // 这条台词紧接着告诉玩家笔出现了，两条支线靠进度总线解耦。
+            spot.lines = objName == "TidyDesk"
+                ? new[]
                 {
-                    text = objName == "TidyDesk" ? "桌面收拾干净了，清爽！" : "书架理好了，舒服多了。",
-                    autoAdvance = 3f
+                    new DialogueLine { text = "桌面收拾干净了，清爽！", autoAdvance = 3f }
                 }
-            };
+                : new[]
+                {
+                    new DialogueLine { text = "书架理好了，舒服多了。", autoAdvance = 3f },
+                    new DialogueLine { text = "嗯？书架上还插着一支笔——正好，就是它。", autoAdvance = 3f }
+                };
             EditorUtility.SetDirty(spot);
         }
 
@@ -643,7 +706,8 @@ namespace RoomDemo
         /// 视觉：深蓝 = 相机清屏色（隐藏客厅后天然呈现）；大棕块 = Backdrop 占位精灵；
         /// 收拾物 = Items 下 3 个占位；高亮 = Highlight 子物体（进入时点亮）。
         /// </summary>
-        static RoomDemo.Quest.TidyCloseup EnsureTidyCloseup(Transform parent, Camera cam, Transform roomRoot)
+        static RoomDemo.Quest.TidyCloseup EnsureTidyCloseup(Transform parent, Camera cam, Transform roomRoot,
+            Transform player)
         {
             // 注意：不能用 GameObject.Find——它找不到 inactive 的物体，会导致每次
             // 重跑菜单都新建一个同名副本（实测踩坑）。必须用父级作用域的 EnsureChild。
@@ -685,6 +749,7 @@ namespace RoomDemo
             tc.mainCamera = cam;
             tc.roomRoot = roomRoot;
             tc.closeupRoot = go.transform;
+            tc.player = player;   // 进特写把主角一起藏起来，否则角色穿帮进特写
             tc.itemsRoot = itemsRoot.transform;
             tc.highlight = null;   // 特写不再有全屏黄色高亮（会糊住手摆透视块）
             EditorUtility.SetDirty(tc);
@@ -697,7 +762,7 @@ namespace RoomDemo
         /// 视觉：水龙头 + 杯子（容器）+ 水柱（WaterFill，按住鼠标上涨）。
         /// </summary>
         static RoomDemo.Quest.WaterCloseup EnsureWaterCloseup(Transform parent, Camera cam, Transform roomRoot,
-            PlayerStats stats, DayTimer timer)
+            PlayerStats stats, DayTimer timer, Transform player)
         {
             // 同 EnsureTidyCloseup：用父级作用域 EnsureChild，不能用 GameObject.Find
             var go = EnsureChild(parent, "WaterCloseupRoot");
@@ -761,6 +826,7 @@ namespace RoomDemo
             wc.mainCamera = cam;
             wc.roomRoot = roomRoot;
             wc.closeupRoot = go.transform;
+            wc.player = player;   // 进特写把主角一起藏起来
             wc.stats = stats;
             wc.timer = timer;
             wc.amount = 20f;
@@ -780,9 +846,9 @@ namespace RoomDemo
             if (go == null)
             {
                 go = new GameObject("WaterSource");
-                go.transform.position = worldPos;
                 go.transform.SetParent(parent, true); // 保留世界坐标
             }
+            go.transform.position = worldPos;
 
             var ws = Ensure<RoomDemo.Quest.WaterSource>(go);
             var sr = go.GetComponent<SpriteRenderer>();
@@ -796,7 +862,7 @@ namespace RoomDemo
 
             ws.player = player;
             ws.closeup = closeup;
-            ws.interactRange = 1.4f;
+            ws.interactRange = 1.0f;
             ws.canInteract = true;
             EditorUtility.SetDirty(ws);
         }

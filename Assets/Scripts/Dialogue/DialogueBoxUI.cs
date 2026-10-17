@@ -19,7 +19,14 @@ namespace RoomDemo
         Text _body;
         bool _subscribed;
 
-        void Start() => Build();
+        void Start()
+        {
+            Build();
+            // 订阅必须在这里就做，不能在 Update 里等到第一帧——
+            // GameManager.Start 阶段就派发了开场第一行，所有 Start 先于所有 Update，
+            // 等到第一帧再订阅时首句已经过去（P6：开场第一句整段消失）。
+            Subscribe();
+        }
 
         void Build()
         {
@@ -42,12 +49,20 @@ namespace RoomDemo
         void Update()
         {
             Build();
-            if (_subscribed) return;
+            if (!_subscribed) Subscribe();
+        }
+
+        /// <summary>幂等订阅。订阅成功后立刻补一次当前行，挽回迟到的首句（P6）。</summary>
+        void Subscribe()
+        {
             var d = Services.Dialogue;
             if (d == null) return;
+
             d.LineChanged -= OnLineChanged;
             d.LineChanged += OnLineChanged;
             _subscribed = true;
+
+            d.ReplayCurrent();
         }
 
         void OnDestroy()

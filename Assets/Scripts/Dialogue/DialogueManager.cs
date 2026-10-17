@@ -154,6 +154,18 @@ namespace RoomDemo
         /// 停止播放并释放上下文。可安全重复调用（GameManager.EnterOpening 会先调它
         /// 清掉上一局残留；没在播放时不会触发 Finished）。
         /// </summary>
+        /// <summary>
+        /// 重派当前行（契约方法 IDialogueService.ReplayCurrent）。
+        /// 供迟到的 UI 订阅者补上错过的行（P6：开场首句）——不重置计时、不推进，
+        /// 纯粹补派一次 LineChanged。未播放时无操作。
+        /// </summary>
+        public void ReplayCurrent()
+        {
+            if (!_playing) return;
+            var line = Current;
+            if (line != null) LineChanged?.Invoke(line);
+        }
+
         public void Stop()
         {
             bool wasPlaying = _playing;

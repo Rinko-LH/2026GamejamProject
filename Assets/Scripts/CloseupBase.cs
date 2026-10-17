@@ -24,6 +24,9 @@ namespace RoomDemo
         public Camera mainCamera;
         [Tooltip("特写容器（含背景等），由装配菜单生成，默认 inactive")]
         public Transform closeupRoot;
+        [Tooltip("主角。进特写时一并隐藏——玩家是根物体不挂 RoomWorld 下，" +
+                 "只藏房间的话角色会穿帮进特写（实测踩过）")]
+        public Transform player;
 
         [Header("特写相机")]
         public float closeupOrthoSize = 5f;
@@ -34,6 +37,7 @@ namespace RoomDemo
         Vector3 _roomCamPos;
         float _roomCamSize;
         bool _inputSubscribed;
+        bool _prePlayerActive;
 
         protected virtual void OnDestroy()
         {
@@ -48,6 +52,7 @@ namespace RoomDemo
 
             SaveCamera();
             SetRoomVisible(false);
+            SetPlayerVisible(false);
             RoomInteractable.CloseupActive = true;
 
             if (closeupRoot != null) closeupRoot.gameObject.SetActive(true);
@@ -67,6 +72,7 @@ namespace RoomDemo
             RoomInteractable.CloseupActive = false;
 
             SetRoomVisible(true);
+            SetPlayerVisible(true);
             if (closeupRoot != null) closeupRoot.gameObject.SetActive(false);
             RestoreCamera();
             OnExited();
@@ -130,6 +136,22 @@ namespace RoomDemo
             room.gameObject.SetActive(visible);
         }
 
+        /// <summary>
+        /// 隐藏/恢复主角。记录进入前的激活态再还原，避免把"本来就被藏起来"的
+        /// 状态覆盖掉（画板特写里玩家就是被主动关掉的）。
+        /// </summary>
+        void SetPlayerVisible(bool visible)
+        {
+            if (player == null) return;
+            if (visible)
+            {
+                player.gameObject.SetActive(_prePlayerActive);
+                return;
+            }
+            _prePlayerActive = player.gameObject.activeSelf;
+            player.gameObject.SetActive(false);
+        }
+
         void HandleInteractInput()
         {
             if (InCloseup) HandleInteract();
@@ -167,6 +189,8 @@ namespace RoomDemo
             InCloseup = false;
             RoomInteractable.CloseupActive = false;
             if (closeupRoot != null) closeupRoot.gameObject.SetActive(false);
+            SetRoomVisible(true);
+            SetPlayerVisible(true);
             RestoreCamera();
             UnsubscribeInput();
         }
