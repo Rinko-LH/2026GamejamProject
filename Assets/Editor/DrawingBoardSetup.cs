@@ -21,6 +21,7 @@ namespace RoomDemo
     ///       PaintingBoard1~3/
     ///         Frame  Canvas  BarBg  BarFill
     ///   BrushPickup/
+    ///   Dialogue/                 ← 1.5 对话系统（DialogueManager + IMGUI 占位框，第 3 步换 uGUI）
     ///   TestSnack / TestWater          ← Demo 验收用的吃喝道具（占位纯色图）
     /// GameManager/
     ///
@@ -286,6 +287,23 @@ namespace RoomDemo
             soMgr.FindProperty("timer").objectReferenceValue = timer;
             soMgr.FindProperty("board").objectReferenceValue = interact;
             soMgr.ApplyModifiedPropertiesWithoutUndo();
+
+            // ---- 9. 对话系统（策划案 1.5） ----
+            var dialogueGo = EnsureChild(systems.transform, "Dialogue");
+            var dialogue = Ensure<DialogueManager>(dialogueGo);
+            Ensure<DialogueBoxUI>(dialogueGo);
+
+            // 开场对白占位台词（E2）：Inspector 里随时可改，策划案正文到了直接替换数组
+            var openingLines = new DialogueLine[]
+            {
+                new DialogueLine { text = "唔……早上了。今天要画画来着。", autoAdvance = 3f },
+                new DialogueLine { text = "桌上应该还压着三小幅没画完……", autoAdvance = 3f },
+                new DialogueLine { text = "先把画笔找出来吧——我记得在书房那边。", autoAdvance = 3f },
+            };
+            // 直接字段赋值：DialogueLine[] 是可序列化类数组，用 SerializedProperty
+            // 逐个建实例太绕；编辑器代码里拿组件实例直接赋值一样能存盘。
+            manager.dialogue = dialogue;
+            manager.openingLines = openingLines;
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);

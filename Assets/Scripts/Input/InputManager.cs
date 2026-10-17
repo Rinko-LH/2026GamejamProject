@@ -8,12 +8,14 @@ namespace RoomDemo.Input
     /// 输入管理（策划案 1.7）：全工程唯一直接读取 Input 的地方。
     /// 玩法脚本一律经此取语义化指令，不自己读 Input。
     ///
-    /// - 轮询：Move / PointerScreenPos / PaintHeld（每帧值）；
-    /// - 事件：Interact(E) / Confirm(空格·回车) / CancelPressed(Esc·右键) /
-    ///   三个调试键（Demo 专用，正式 UI 做好后连订阅一起删）；
-    /// - 上下文栈：PushContext 期间（对话播放、UI 面板等）Move 归零、
-    ///   边沿动作全部不派发——"播放台词时锁输入"就靠它（第 2 步启用）。
-    ///
+/// - 轮询：Move / PointerScreenPos / PaintHeld（每帧值）；
+/// - 事件：Interact(E) / Confirm(空格·回车) / CancelPressed(Esc·右键) /
+///   三个调试键（Demo 专用，正式 UI 做好后连订阅一起删）；
+/// - 上下文栈：PushContext 期间（对话播放、UI 面板等）Move 归零、
+///   边沿动作全部不派发——"播放台词时锁输入"就靠它（第 2 步启用）。
+///   **例外**：阻塞上下文含 <see cref="DialogueContext"/>（对话）时，
+///   Confirm / CancelPressed 照常派发——对话自己要靠这两个键推进和跳过。
+///
     /// 注意：Move 是轮询值，消费方在自己的 Update 里读，可能比本帧晚一帧
     /// （Update 执行顺序不定）——位移类可接受；边沿动作走事件，同帧派发无此问题。
     ///
@@ -74,6 +76,13 @@ namespace RoomDemo.Input
 
         // ---------- 上下文栈 ----------
 
+        /// <summary>
+        /// 对白上下文名。压入它 = "正在播对白"：Move 归零、Interact/调试键全锁，
+        /// 但 Confirm / CancelPressed 放行（推进 / 跳过对白）。
+        /// DialogueManager 播放时压入、结束时弹出。
+        /// </summary>
+        public const string DialogueContext = "dialogue";
+
         readonly HashSet<string> _contexts = new HashSet<string>();
 
         /// <summary>是否有上下文封锁输入（对话/UI 等）。</summary>
@@ -114,11 +123,18 @@ namespace RoomDemo.Input
             Move = blocked ? Vector2.zero : new Vector2(rawX, rawY);
             PaintHeld = blocked ? false : UnityEngine.Input.GetMouseButton(paintMouseButton);
 
-            if (blocked) return; // 封锁期间不派发任何按下沿
+            // 对白豁免（T2.0）：阻塞来源是对话时，确认/取消两个按下沿照常派发，
+            // 否则对白自己没法推进、没法跳过。其余边沿动作仍全锁。
+            bool dialogueActive = _contexts.Contains(DialogueContext);
+            if (!blocked || dialogueActive)
+            {
+                if (UnityEngine.Input.GetKeyDown(confirmKey) || UnityEngine.Input.GetKeyDown(confirmKeyAlt)) Confirm?.Invoke();
+                if (UnityEngine.Input.GetKeyDown(cancelKey) || UnityEngine.Input.GetMouseButtonDown(cancelMouseButton)) CancelPressed?.Invoke();
+            }
+
+            if (blocked) return; // 封锁期间不派发其余按下沿（Interact / 调试键）
 
             if (UnityEngine.Input.GetKeyDown(interactKey)) Interact?.Invoke();
-            if (UnityEngine.Input.GetKeyDown(confirmKey) || UnityEngine.Input.GetKeyDown(confirmKeyAlt)) Confirm?.Invoke();
-            if (UnityEngine.Input.GetKeyDown(cancelKey) || UnityEngine.Input.GetMouseButtonDown(cancelMouseButton)) CancelPressed?.Invoke();
 
             if (UnityEngine.Input.GetKeyDown(debugToggleHudKey)) DebugToggleHud?.Invoke();
             if (UnityEngine.Input.GetKeyDown(debugFastForwardKey)) DebugFastForward?.Invoke();

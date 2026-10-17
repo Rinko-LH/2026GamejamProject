@@ -19,10 +19,14 @@ namespace RoomDemo
         public PlayerStats stats;
         public DayTimer timer;
         public DrawingBoardInteract board;
+        public DialogueManager dialogue;
 
         [Header("开场独白")]
         [Tooltip("独白秒数，到点自动进入自由探索")]
         public float openingSeconds = 3f;
+
+        [Tooltip("开场对白队列（策划案 1.5 / D4）。留空则退化为纯计时独白")]
+        public DialogueLine[] openingLines = new DialogueLine[0];
 
         [Header("结算")]
         public int paintingsCompleted;
@@ -42,6 +46,7 @@ namespace RoomDemo
             if (stats == null) stats = FindObjectOfType<PlayerStats>();
             if (timer == null) timer = FindObjectOfType<DayTimer>();
             if (board == null) board = FindObjectOfType<DrawingBoardInteract>();
+            if (dialogue == null) dialogue = FindObjectOfType<DialogueManager>();
         }
 
         void OnDestroy()
@@ -62,7 +67,10 @@ namespace RoomDemo
             if (State == GameFlowState.Opening)
             {
                 _openingTimer += Time.deltaTime;
-                if (_openingTimer >= openingSeconds) EnterExploring();
+                // D4：对白播完才进探索；openingSeconds 为最短兜底（无对白内容时
+                // 退化为纯计时）。对白每行 autoAdvance 自动推进，正常情况下不会卡住。
+                bool dialogueBusy = dialogue != null && dialogue.IsPlaying;
+                if (_openingTimer >= openingSeconds && !dialogueBusy) EnterExploring();
             }
         }
 
@@ -110,6 +118,10 @@ namespace RoomDemo
         {
             _openingTimer = 0f;
             if (timer != null) timer.ResetTimer();
+            // 先清掉上一局残留队列（ResetRun 时可能正在播对白），再播本局开场对白
+            if (dialogue != null) dialogue.Stop();
+            if (dialogue != null && openingLines != null && openingLines.Length > 0)
+                dialogue.Play(openingLines);
             SetState(GameFlowState.Opening);
             Debug.Log("[流程] 开场独白：「今天要画画来着……」");
         }
@@ -187,7 +199,13 @@ namespace RoomDemo
             HudText(22f, y, "[DEMO HUD] F1 隐藏 ｜ T 快进60分钟 ｜ 结算后按 R 重开", 14); y += lineH - 6f;
 
             if (State == GameFlowState.Opening)
-                HudText(22f, y, "状态：开场独白（" + Mathf.Max(0f, openingSeconds - _openingTimer).ToString("F1") + "s 后进入自由探索）", 20);
+            {
+                bool dlgBusy = dialogue != null && dialogue.IsPlaying;
+                string openingLine = dlgBusy
+                    ? "状态：开场对白（第 " + (dialogue.CurrentIndex + 1) + "/" + dialogue.lines.Length + " 行，空格推进 · Esc 跳过）"
+                    : "状态：开场独白（" + Mathf.Max(0f, openingSeconds - _openingTimer).ToString("F1") + "s 后进入自由探索）";
+                HudText(22f, y, openingLine, 20);
+            }
             else if (State == GameFlowState.Exploring)
                 HudText(22f, y, "状态：自由探索", 20);
             else
