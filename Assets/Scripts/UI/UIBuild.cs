@@ -46,6 +46,11 @@ namespace RoomDemo.UI
         {
             var rt = NewRect(parent, name);
             rt.anchorMin = rt.anchorMax = anchor;
+            // 关键：pivot 必须跟锚点一致，offset 才是"距边缘的边距"。
+            // 默认 pivot 是 (0.5,0.5) 居中，offset 定位的是矩形<b>中心</b>——
+            // 于是 (20,-16) 会把 130 高的矩形上沿顶到角外 49px，而文本
+            // 又是从矩形顶部开始排版，整行字就画到屏幕外去了（HUD 全不可见）。
+            rt.pivot = anchor;
             rt.anchoredPosition = anchoredPos;
             rt.sizeDelta = size;
 

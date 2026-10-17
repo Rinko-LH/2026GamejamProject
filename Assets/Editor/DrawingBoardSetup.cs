@@ -57,6 +57,10 @@ namespace RoomDemo
         const int OrderBoardMarker = 15050;
         const int OrderBrush = 15060;
         const int OrderCat = 15070;
+        // 主角：必须压在家具（100）与画板标记（15050）之上，否则走到柜子/画板
+        // 前就被完全盖住。夹在猫（15070）与特写画布（15100）之间——
+        // 特写里主角本来就被 SetActive(false)，提层不会穿帮进特写。
+        const int OrderPlayer = 15080;
         // 客厅布景（墙/地板/家具）用低值，天然垫在交互物（150xx）后面
         const int OrderFurniture = 100;
         // 收拾特写里的杂物：叠在手摆透视块之上（透视块默认 0）
@@ -482,6 +486,9 @@ namespace RoomDemo
             // 全部挂 RoomWorld 下，进特写随房间一起隐藏；sortingOrder 低值垫底。
             EnsureRoomScenery(roomWorldGo != null ? roomWorldGo.transform : null);
 
+            // ---- 15. 主角层级（P8） ----
+            EnsurePlayerLayer(player);
+
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
             EditorUtility.SetDirty(systems);
@@ -548,6 +555,20 @@ namespace RoomDemo
             rt.anchorMin = rt.anchorMax = anchor;
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 主角提层（P8）：把 Player 下所有 SpriteRenderer 拉到交互物之上。
+        /// 场景里主角是手摆的（Body=10 / Shadow=0），公开字段改默认值不会更新
+        /// 已序列化值，所以这里无条件写死。阴影低一格，避免同层级时绘制顺序
+        /// 不稳定把身体盖住。
+        /// </summary>
+        static void EnsurePlayerLayer(Transform player)
+        {
+            if (player == null) return;
+            var srs = player.GetComponentsInChildren<SpriteRenderer>(true);
+            foreach (var sr in srs)
+                sr.sortingOrder = sr.gameObject.name == "Shadow" ? OrderPlayer - 1 : OrderPlayer;
         }
 
         static SpriteRenderer EnsureRenderer(GameObject go, int sortingOrder)
