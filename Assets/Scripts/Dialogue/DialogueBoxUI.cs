@@ -32,16 +32,16 @@ namespace RoomDemo
         {
             if (_box != null) return;
 
-            // 底部居中半透明黑底（接近屏宽 1728 / 高 240，离底 30）
+            // 底部居中半透明黑底（接近屏宽 1728 / 高 440，离底 30）
             var img = UIBuild.Image(transform, "Box", new Color(0f, 0f, 0f, 0.78f),
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(-864f, 30f), new Vector2(864f, 270f));
+                new Vector2(-864f, 30f), new Vector2(864f, 470f));
             _box = img.gameObject;
 
-            _speaker = UIBuild.Text(_box.transform, "Speaker", 28, TextAnchor.UpperLeft,
-                new Color(1f, 0.85f, 0.5f), new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(1680f, 40));
-            _body = UIBuild.Text(_box.transform, "Body", 36, TextAnchor.UpperLeft, Color.white,
-                new Vector2(0f, 1f), new Vector2(24f, -70f), new Vector2(1680f, 180));
+            _speaker = UIBuild.Text(_box.transform, "Speaker", 56, TextAnchor.UpperLeft,
+                new Color(1f, 0.85f, 0.5f), new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(1680f, 70));
+            _body = UIBuild.Text(_box.transform, "Body", 72, TextAnchor.UpperLeft, Color.white,
+                new Vector2(0f, 1f), new Vector2(24f, -96f), new Vector2(1680f, 300));
 
             _box.SetActive(false);
         }
