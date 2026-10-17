@@ -59,6 +59,10 @@ namespace RoomDemo
         const int OrderCat = 15070;
         // 客厅布景（墙/地板/家具）用低值，天然垫在交互物（150xx）后面
         const int OrderFurniture = 100;
+        // 收拾特写里的杂物：叠在手摆透视块之上（透视块默认 0）
+        const int OrderTidyItem = 60;
+        // UI 画布：必须高于所有场景精灵（150xx），否则对话框/状态栏会被场景遮住
+        const int OrderUiCanvas = 30000;
 
         [MenuItem(MenuPath)]
         public static void Build()
@@ -365,6 +369,8 @@ namespace RoomDemo
                 scaler.referenceResolution = new Vector2(1920f, 1080f);
                 uiRoot.AddComponent<GraphicRaycaster>();
             }
+            // 无条件写死：确保 UI 永远压在场景精灵（150xx）之上，不被遮住
+            uiCanvas.sortingOrder = OrderUiCanvas;
             var statusGo = EnsureChild(uiRoot.transform, "StatusBar");
             Ensure<RoomDemo.UI.StatusBar>(statusGo);
             var clockGo = EnsureChild(uiRoot.transform, "ClockDisplay");
@@ -646,17 +652,12 @@ namespace RoomDemo
 
             var tc = Ensure<RoomDemo.Quest.TidyCloseup>(go);
 
-            // 背景大棕块
-            var bg = EnsureChild(go.transform, "Backdrop");
-            var bgSr = bg.GetComponent<SpriteRenderer>();
-            if (bgSr == null)
-            {
-                bgSr = bg.AddComponent<SpriteRenderer>();
-                bgSr.sprite = MakePlaceholderSprite("tidycloseup_bg", new Color(0.54f, 0.38f, 0.26f));
-                bgSr.sortingOrder = 0;
-            }
-            bg.transform.localPosition = new Vector3(0f, 0f, -1f);
-            bg.transform.localScale = new Vector3(12f, 7f, 1f);
+            // 收拾特写不再用合成背景/高亮：画面主体改成玩家手摆的透视块
+            // （GameObject (1)~(6)，带各自旋转），只在容器外保留它们，这里一律清掉旧的。
+            var staleBg = go.transform.Find("Backdrop");
+            if (staleBg != null) Object.DestroyImmediate(staleBg.gameObject);
+            var staleHl = go.transform.Find("Highlight");
+            if (staleHl != null) Object.DestroyImmediate(staleHl.gameObject);
 
             // 收拾物（3 个占位）
             var itemsRoot = EnsureChild(go.transform, "Items");
@@ -667,37 +668,25 @@ namespace RoomDemo
                 {
                     itemGo = new GameObject("Item" + i);
                     itemGo.transform.SetParent(itemsRoot.transform, false);
-                    itemGo.transform.localPosition = new Vector3(i * 3f - 3f, 0f, 0f);
                 }
                 var sr = itemGo.GetComponent<SpriteRenderer>();
                 if (sr == null)
                 {
                     sr = itemGo.AddComponent<SpriteRenderer>();
                     sr.sprite = MakePlaceholderSprite("tidycloseup_item", new Color(0.82f, 0.78f, 0.30f));
-                    sr.sortingOrder = 1;
                 }
-                itemGo.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
+                // 摆在画面中央、叠在手摆透视块之上（透视块 sortingOrder 较低）
+                itemGo.transform.localPosition = new Vector3(i * 1.5f - 1.5f, -0.2f, 0f);
+                itemGo.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+                sr.sortingOrder = OrderTidyItem;
             }
-
-            // 高亮（进入特写点亮）
-            var hl = EnsureChild(go.transform, "Highlight");
-            var hlSr = hl.GetComponent<SpriteRenderer>();
-            if (hlSr == null)
-            {
-                hlSr = hl.AddComponent<SpriteRenderer>();
-                hlSr.sprite = MakePlaceholderSprite("tidycloseup_hl", new Color(1f, 1f, 0.25f, 0.45f));
-                hlSr.sortingOrder = 2;
-            }
-            hl.transform.localPosition = new Vector3(0f, 0f, 0.1f);
-            hl.transform.localScale = new Vector3(10f, 7f, 1f);
-            hl.SetActive(false);
 
             // 接线（公开字段直接赋值，序列化随场景存盘；重跑不覆盖美术调好的参数）
             tc.mainCamera = cam;
             tc.roomRoot = roomRoot;
             tc.closeupRoot = go.transform;
             tc.itemsRoot = itemsRoot.transform;
-            tc.highlight = hl;
+            tc.highlight = null;   // 特写不再有全屏黄色高亮（会糊住手摆透视块）
             EditorUtility.SetDirty(tc);
             return tc;
         }
