@@ -279,6 +279,7 @@ namespace RoomDemo
 
             EnsureSubscriptions();
             _inCloseup = true;
+            RoomInteractable.CloseupActive = true;
 
             // 隐藏房间内容，只留画板
             if (player != null)
@@ -322,6 +323,7 @@ namespace RoomDemo
         {
             if (!_inCloseup) return;
             _inCloseup = false;
+            RoomInteractable.CloseupActive = false;
 
             if (player != null) player.gameObject.SetActive(_preRoomPlayerActive);
             SetRoomVisible(true);

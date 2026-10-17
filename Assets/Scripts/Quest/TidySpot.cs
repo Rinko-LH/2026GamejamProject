@@ -19,6 +19,10 @@ namespace RoomDemo.Quest
     /// </summary>
     public class TidySpot : RoomInteractable, IResettable
     {
+        [Header("特写")]
+        [Tooltip("收拾特写管理器（装配菜单写入）。非空时进特写，否则回退为房间内直接收拾")]
+        public TidyCloseup closeup;
+
         [Header("状态恢复")]
         public PlayerStats stats;
         public StatKind effect = StatKind.Spirit;
@@ -58,13 +62,21 @@ namespace RoomDemo.Quest
 
             if (!_armed)
             {
-                // 第一段：进入整理模式，点亮高亮提示玩家"再按 E 收拾"
+                // 第一段：进入整理模式，点亮高亮提示玩家"再按 E 收拾"；
+                // 若已装配收拾特写，则进入独立特写视图（仿画板，方向 A）。
                 _armed = true;
                 if (highlight != null) highlight.SetActive(true);
+                if (closeup != null) closeup.Enter(this);
                 return;
             }
 
-            // 第二段：执行收拾
+            // 第二段：执行收拾（特写里也走这里）
+            ExecuteTidy();
+        }
+
+        /// <summary>执行收拾：隐藏收拾物、恢复状态、上报进度、播台词。供特写管理器调用。</summary>
+        public void ExecuteTidy()
+        {
             foreach (var it in _items)
                 if (it != null) it.SetActive(false);
 
@@ -78,6 +90,13 @@ namespace RoomDemo.Quest
 
             if (highlight != null) highlight.SetActive(false);
             canInteract = false;
+        }
+
+        /// <summary>中途退出特写（尚未执行）时复位点亮态，回到房间仍可再进。</summary>
+        public void CancelArm()
+        {
+            _armed = false;
+            if (highlight != null) highlight.SetActive(false);
         }
 
         /// <summary>R 重开：收拾物复位、高亮熄灭、可再次交互（IResettable）。</summary>

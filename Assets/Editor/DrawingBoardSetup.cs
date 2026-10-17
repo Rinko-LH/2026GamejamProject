@@ -57,6 +57,8 @@ namespace RoomDemo
         const int OrderBoardMarker = 15050;
         const int OrderBrush = 15060;
         const int OrderCat = 15070;
+        // 客厅布景（墙/地板/家具）用低值，天然垫在交互物（150xx）后面
+        const int OrderFurniture = 100;
 
         [MenuItem(MenuPath)]
         public static void Build()
@@ -419,10 +421,26 @@ namespace RoomDemo
             // ---- 13. 收拾（S3，策划案 2.3） ----
             // 桌面 + 书架各一个 TidySpot，两段式 E（第一次高亮、第二次执行）。
             // 收拾物 = Items 下的 itemCount 个占位色块；高亮 = Highlight 子物体。
-            // 全部可重复执行：已存在只补齐，不覆盖美术调好的参数。
+            // 收拾特写：进入收拾即切到独立视图（隐藏客厅、相机聚焦深蓝底+棕块背景），
+            // 仿画板特写（方向 A）。全部可重复执行：已存在只补齐，不覆盖美术调好的参数。
             var tidyParent = roomWorldGo != null ? roomWorldGo.transform : systems.transform;
-            EnsureTidySpot(tidyParent, player, stats, "TidyDesk", new Vector3(-2.6f, 0.9f, 0f), QuestId.TidyDesk);
-            EnsureTidySpot(tidyParent, player, stats, "TidyShelf", new Vector3(2.4f, 1.1f, 0f), QuestId.TidyShelf);
+            var cam = FindOrthoCamera();
+            var tidyCloseup = EnsureTidyCloseup(systems.transform, cam,
+                roomWorldGo != null ? roomWorldGo.transform : null);
+            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyDesk", new Vector3(-2.6f, 0.9f, 0f), QuestId.TidyDesk);
+            EnsureTidySpot(tidyParent, player, stats, tidyCloseup, "TidyShelf", new Vector3(2.4f, 1.1f, 0f), QuestId.TidyShelf);
+
+            // ---- 13b. 接水特写（S4，策划案 2.2） ----
+            // 与收拾特写共用 CloseupBase（隐藏客厅 / 相机 / 总闸门 / Esc / IResettable）。
+            // 走到水源按 E 进入，按住鼠标接水，满则 +20 水分 / 扣 15 游戏分钟 / 上报 Water。
+            var waterCloseup = EnsureWaterCloseup(systems.transform, cam,
+                roomWorldGo != null ? roomWorldGo.transform : null, stats, timer);
+            EnsureWaterSource(tidyParent, player, waterCloseup, new Vector3(0.3f, 0.8f, 0f));
+
+            // ---- 14. 客厅布景 ----
+            // 让客厅不再是"深蓝底 + 浮空棕块"：加墙 / 地板 / 窗 / 地毯 / 装饰。
+            // 全部挂 RoomWorld 下，进特写随房间一起隐藏；sortingOrder 低值垫底。
+            EnsureRoomScenery(roomWorldGo != null ? roomWorldGo.transform : null);
 
             EditorUtility.SetDirty(boardGo);
             EditorUtility.SetDirty(containerGo);
@@ -558,7 +576,8 @@ namespace RoomDemo
         }
 
         /// <summary>摆放一个收拾点（可重复执行：已存在只补齐组件和引用、不覆盖美术参数）。</summary>
-        static void EnsureTidySpot(Transform parent, Transform player, PlayerStats stats, string objName, Vector3 worldPos, QuestId reportId)
+        static void EnsureTidySpot(Transform parent, Transform player, PlayerStats stats, RoomDemo.Quest.TidyCloseup closeup,
+            string objName, Vector3 worldPos, QuestId reportId)
         {
             var go = GameObject.Find(objName);
             if (go == null)
@@ -569,39 +588,26 @@ namespace RoomDemo
             }
 
             var spot = Ensure<RoomDemo.Quest.TidySpot>(go);
-            var itemsRoot = EnsureChild(go.transform, "Items");
 
-            // 生成 itemCount 个占位色块（桌面/书架的散落物）
-            const int count = 3;
-            for (int i = 0; i < count; i++)
-            {
-                string itemName = "Item" + i;
-                var itemGo = itemsRoot.transform.Find(itemName)?.gameObject;
-                if (itemGo == null)
-                {
-                    itemGo = new GameObject(itemName);
-                    itemGo.transform.SetParent(itemsRoot.transform, false);
-                    itemGo.transform.localPosition = new Vector3(i * 0.5f - 0.5f, 0f, 0f);
-                }
-                var sr = itemGo.GetComponent<SpriteRenderer>();
-                if (sr == null)
-                {
-                    sr = itemGo.AddComponent<SpriteRenderer>();
-                    sr.sprite = MakePlaceholderSprite("tidy_" + objName.ToLowerInvariant() + "_" + i, new Color(0.82f, 0.78f, 0.30f));
-                    sr.sortingOrder = OrderCat + 1;
-                }
-            }
+            // 清掉旧的房间侧杂物 / 高亮——杂物与高亮已移到收拾特写里（"移过去"），
+            // 客厅里只留家具本体，这样"走进特写才看见乱"才成立。
+            var staleItems = go.transform.Find("Items");
+            if (staleItems != null) Object.DestroyImmediate(staleItems.gameObject);
+            var staleHl = go.transform.Find("Highlight");
+            if (staleHl != null) Object.DestroyImmediate(staleHl.gameObject);
 
-            // 高亮提示物（第一次 E 时点亮）
-            var highlightGo = EnsureChild(go.transform, "Highlight");
-            var hlSr = highlightGo.GetComponent<SpriteRenderer>();
-            if (hlSr == null)
+            // 家具本体（桌 / 书架）：客厅里唯一的视觉标识
+            var furniture = EnsureChild(go.transform, "Furniture");
+            var fSr = furniture.GetComponent<SpriteRenderer>();
+            if (fSr == null)
             {
-                hlSr = highlightGo.AddComponent<SpriteRenderer>();
-                hlSr.sprite = MakePlaceholderSprite("tidy_hl_" + objName.ToLowerInvariant(), new Color(1f, 1f, 0.25f, 0.45f));
-                hlSr.sortingOrder = OrderCat + 2;
+                fSr = furniture.AddComponent<SpriteRenderer>();
+                fSr.sprite = MakePlaceholderSprite("tidy_furniture_" + objName.ToLowerInvariant(),
+                    new Color(0.44f, 0.31f, 0.22f));
+                fSr.sortingOrder = OrderFurniture;
             }
-            highlightGo.SetActive(false);
+            furniture.transform.localPosition = new Vector3(0f, 0f, 0f);
+            furniture.transform.localScale = new Vector3(2.4f, 1.6f, 1f);
 
             // 接线（公开字段直接赋值，序列化随场景存盘；重跑不覆盖美术调好的参数）
             spot.player = player;
@@ -609,10 +615,11 @@ namespace RoomDemo
             spot.reportId = reportId;
             spot.effect = StatKind.Spirit;
             spot.amount = 20f;
-            spot.itemCount = count;
+            spot.itemCount = 3;      // 杂物数量（实际视觉在收拾特写里）
             spot.interactRange = 1.4f;
-            spot.itemsRoot = itemsRoot.transform;
-            spot.highlight = highlightGo;
+            spot.itemsRoot = null;   // 房间侧不再有杂物（在特写里）
+            spot.highlight = null;   // 房间侧不再有高亮（在特写里）
+            spot.closeup = closeup;
             spot.lines = new DialogueLine[]
             {
                 new DialogueLine
@@ -622,6 +629,269 @@ namespace RoomDemo
                 }
             };
             EditorUtility.SetDirty(spot);
+        }
+
+        /// <summary>
+        /// 搭建收拾特写容器（可重复执行：已存在只补齐组件和视觉，不覆盖美术调好的参数）。
+        /// 默认 inactive，进入收拾（TidySpot 第一段）时由 TidyCloseup.Enter 激活。
+        /// 视觉：深蓝 = 相机清屏色（隐藏客厅后天然呈现）；大棕块 = Backdrop 占位精灵；
+        /// 收拾物 = Items 下 3 个占位；高亮 = Highlight 子物体（进入时点亮）。
+        /// </summary>
+        static RoomDemo.Quest.TidyCloseup EnsureTidyCloseup(Transform parent, Camera cam, Transform roomRoot)
+        {
+            // 注意：不能用 GameObject.Find——它找不到 inactive 的物体，会导致每次
+            // 重跑菜单都新建一个同名副本（实测踩坑）。必须用父级作用域的 EnsureChild。
+            var go = EnsureChild(parent, "TidyCloseupRoot");
+            go.SetActive(false);
+
+            var tc = Ensure<RoomDemo.Quest.TidyCloseup>(go);
+
+            // 背景大棕块
+            var bg = EnsureChild(go.transform, "Backdrop");
+            var bgSr = bg.GetComponent<SpriteRenderer>();
+            if (bgSr == null)
+            {
+                bgSr = bg.AddComponent<SpriteRenderer>();
+                bgSr.sprite = MakePlaceholderSprite("tidycloseup_bg", new Color(0.54f, 0.38f, 0.26f));
+                bgSr.sortingOrder = 0;
+            }
+            bg.transform.localPosition = new Vector3(0f, 0f, -1f);
+            bg.transform.localScale = new Vector3(12f, 7f, 1f);
+
+            // 收拾物（3 个占位）
+            var itemsRoot = EnsureChild(go.transform, "Items");
+            for (int i = 0; i < 3; i++)
+            {
+                var itemGo = itemsRoot.transform.Find("Item" + i)?.gameObject;
+                if (itemGo == null)
+                {
+                    itemGo = new GameObject("Item" + i);
+                    itemGo.transform.SetParent(itemsRoot.transform, false);
+                    itemGo.transform.localPosition = new Vector3(i * 3f - 3f, 0f, 0f);
+                }
+                var sr = itemGo.GetComponent<SpriteRenderer>();
+                if (sr == null)
+                {
+                    sr = itemGo.AddComponent<SpriteRenderer>();
+                    sr.sprite = MakePlaceholderSprite("tidycloseup_item", new Color(0.82f, 0.78f, 0.30f));
+                    sr.sortingOrder = 1;
+                }
+                itemGo.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
+            }
+
+            // 高亮（进入特写点亮）
+            var hl = EnsureChild(go.transform, "Highlight");
+            var hlSr = hl.GetComponent<SpriteRenderer>();
+            if (hlSr == null)
+            {
+                hlSr = hl.AddComponent<SpriteRenderer>();
+                hlSr.sprite = MakePlaceholderSprite("tidycloseup_hl", new Color(1f, 1f, 0.25f, 0.45f));
+                hlSr.sortingOrder = 2;
+            }
+            hl.transform.localPosition = new Vector3(0f, 0f, 0.1f);
+            hl.transform.localScale = new Vector3(10f, 7f, 1f);
+            hl.SetActive(false);
+
+            // 接线（公开字段直接赋值，序列化随场景存盘；重跑不覆盖美术调好的参数）
+            tc.mainCamera = cam;
+            tc.roomRoot = roomRoot;
+            tc.closeupRoot = go.transform;
+            tc.itemsRoot = itemsRoot.transform;
+            tc.highlight = hl;
+            EditorUtility.SetDirty(tc);
+            return tc;
+        }
+
+        /// <summary>
+        /// 搭建接水特写容器（S4，可重复执行）。默认 inactive，走到水源按 E 时进入。
+        /// 观感与收拾特写一致：深蓝 = 相机清屏色（隐藏客厅后天然呈现），大棕块 = Backdrop。
+        /// 视觉：水龙头 + 杯子（容器）+ 水柱（WaterFill，按住鼠标上涨）。
+        /// </summary>
+        static RoomDemo.Quest.WaterCloseup EnsureWaterCloseup(Transform parent, Camera cam, Transform roomRoot,
+            PlayerStats stats, DayTimer timer)
+        {
+            // 同 EnsureTidyCloseup：用父级作用域 EnsureChild，不能用 GameObject.Find
+            var go = EnsureChild(parent, "WaterCloseupRoot");
+            go.SetActive(false);
+
+            var wc = Ensure<RoomDemo.Quest.WaterCloseup>(go);
+
+            // 背景大棕块
+            var bg = EnsureChild(go.transform, "Backdrop");
+            var bgSr = bg.GetComponent<SpriteRenderer>();
+            if (bgSr == null)
+            {
+                bgSr = bg.AddComponent<SpriteRenderer>();
+                bgSr.sprite = MakePlaceholderSprite("watercloseup_bg", new Color(0.46f, 0.42f, 0.36f));
+                bgSr.sortingOrder = 0;
+            }
+            bg.transform.localPosition = new Vector3(0f, 0f, -1f);
+            bg.transform.localScale = new Vector3(12f, 7f, 1f);
+
+            // 杯子（容器）
+            var cup = EnsureChild(go.transform, "Cup");
+            var cupSr = cup.GetComponent<SpriteRenderer>();
+            if (cupSr == null)
+            {
+                cupSr = cup.AddComponent<SpriteRenderer>();
+                cupSr.sprite = MakePlaceholderSprite("watercloseup_cup", new Color(0.90f, 0.92f, 0.93f));
+                cupSr.sortingOrder = 1;
+            }
+            cup.transform.localPosition = new Vector3(0f, -0.4f, 0f);
+            cup.transform.localScale = new Vector3(2.6f, 4.2f, 1f);
+
+            // 水柱（蓝色，底边对齐，localScale.y 由 WaterCloseup 驱动）
+            var fill = EnsureChild(go.transform, "WaterFill");
+            var fillSr = fill.GetComponent<SpriteRenderer>();
+            if (fillSr == null)
+            {
+                fillSr = fill.AddComponent<SpriteRenderer>();
+                fillSr.sprite = MakePlaceholderSprite("watercloseup_fill", new Color(0.35f, 0.62f, 0.85f));
+                fillSr.sortingOrder = 2;
+            }
+            fill.transform.localPosition = new Vector3(0f, -2.2f, 0f);
+            fill.transform.localScale = new Vector3(2.2f, 0.001f, 1f);
+
+            // 水龙头（上方小色块）
+            var tap = EnsureChild(go.transform, "Tap");
+            var tapSr = tap.GetComponent<SpriteRenderer>();
+            if (tapSr == null)
+            {
+                tapSr = tap.AddComponent<SpriteRenderer>();
+                tapSr.sprite = MakePlaceholderSprite("watercloseup_tap", new Color(0.66f, 0.70f, 0.74f));
+                tapSr.sortingOrder = 1;
+            }
+            tap.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+            tap.transform.localScale = new Vector3(1.2f, 0.9f, 1f);
+
+            // 接线（数值案显式写死：+20 水分 / 15 游戏分钟 / 2.5 秒接满）
+            wc.waterFill = fill.transform;
+            wc.fillBottomY = -2.2f;
+            wc.fillMaxHeight = 3.6f;
+            wc.fillSeconds = 2.5f;
+            wc.mainCamera = cam;
+            wc.roomRoot = roomRoot;
+            wc.closeupRoot = go.transform;
+            wc.stats = stats;
+            wc.timer = timer;
+            wc.amount = 20f;
+            wc.costMinutes = 15f;
+            wc.lines = new DialogueLine[]
+            {
+                new DialogueLine { text = "接了杯水，喝下去舒服多了。", autoAdvance = 3f }
+            };
+            EditorUtility.SetDirty(wc);
+            return wc;
+        }
+
+        /// <summary>摆放客厅里的水源（S4 入口）：走近按 E 进接水特写。</summary>
+        static void EnsureWaterSource(Transform parent, Transform player, RoomDemo.Quest.WaterCloseup closeup, Vector3 worldPos)
+        {
+            var go = GameObject.Find("WaterSource");
+            if (go == null)
+            {
+                go = new GameObject("WaterSource");
+                go.transform.position = worldPos;
+                go.transform.SetParent(parent, true); // 保留世界坐标
+            }
+
+            var ws = Ensure<RoomDemo.Quest.WaterSource>(go);
+            var sr = go.GetComponent<SpriteRenderer>();
+            if (sr == null)
+            {
+                sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = MakePlaceholderSprite("water_source", new Color(0.55f, 0.72f, 0.85f));
+                sr.sortingOrder = OrderFurniture;
+            }
+            go.transform.localScale = new Vector3(0.9f, 1.4f, 1f);
+
+            ws.player = player;
+            ws.closeup = closeup;
+            ws.interactRange = 1.4f;
+            ws.canInteract = true;
+            EditorUtility.SetDirty(ws);
+        }
+
+        /// <summary>
+        /// 客厅布景（让房间不再是"深蓝底 + 几块浮空棕块"）：
+        /// 墙 / 地板 / 窗 / 地毯，全部挂 RoomWorld 下（进特写随房间一起隐藏），
+        /// sortingOrder 用低值垫在交互物（150xx）后面。占位色块，美术到位可整段替换。
+        /// </summary>
+        static void EnsureRoomScenery(Transform roomParent)
+        {
+            if (roomParent == null) return;
+
+            // 墙：铺满上半部
+            var wall = EnsureChild(roomParent, "Wall");
+            var wallSr = wall.GetComponent<SpriteRenderer>();
+            if (wallSr == null)
+            {
+                wallSr = wall.AddComponent<SpriteRenderer>();
+                wallSr.sprite = MakePlaceholderSprite("room_wall", new Color(0.72f, 0.70f, 0.66f));
+                wallSr.sortingOrder = -100;
+            }
+            wall.transform.localPosition = new Vector3(0f, 1.0f, 2f);
+            wall.transform.localScale = new Vector3(26f, 12f, 1f);
+
+            // 地板：底部横向木色带，房间立刻有纵深
+            var floor = EnsureChild(roomParent, "Floor");
+            var floorSr = floor.GetComponent<SpriteRenderer>();
+            if (floorSr == null)
+            {
+                floorSr = floor.AddComponent<SpriteRenderer>();
+                floorSr.sprite = MakePlaceholderSprite("room_floor", new Color(0.52f, 0.36f, 0.24f));
+                floorSr.sortingOrder = -90;
+            }
+            floor.transform.localPosition = new Vector3(0f, -2.6f, 1f);
+            floor.transform.localScale = new Vector3(26f, 4f, 1f);
+
+            // 窗：墙上浅色矩形（光源感）
+            var win = EnsureChild(roomParent, "Window");
+            var winSr = win.GetComponent<SpriteRenderer>();
+            if (winSr == null)
+            {
+                winSr = win.AddComponent<SpriteRenderer>();
+                winSr.sprite = MakePlaceholderSprite("room_window", new Color(0.85f, 0.92f, 0.95f));
+                winSr.sortingOrder = -80;
+            }
+            win.transform.localPosition = new Vector3(-3.2f, 2.4f, 1.5f);
+            win.transform.localScale = new Vector3(3.2f, 2.6f, 1f);
+
+            // 地毯：地面暖色矩形
+            var rug = EnsureChild(roomParent, "Rug");
+            var rugSr = rug.GetComponent<SpriteRenderer>();
+            if (rugSr == null)
+            {
+                rugSr = rug.AddComponent<SpriteRenderer>();
+                rugSr.sprite = MakePlaceholderSprite("room_rug", new Color(0.62f, 0.42f, 0.45f));
+                rugSr.sortingOrder = -70;
+            }
+            rug.transform.localPosition = new Vector3(0f, -1.9f, 0.5f);
+            rug.transform.localScale = new Vector3(6f, 1.4f, 1f);
+
+            // 挂画：右侧墙面小装饰
+            var frame = EnsureChild(roomParent, "WallFrame");
+            var frameSr = frame.GetComponent<SpriteRenderer>();
+            if (frameSr == null)
+            {
+                frameSr = frame.AddComponent<SpriteRenderer>();
+                frameSr.sprite = MakePlaceholderSprite("room_frame", new Color(0.80f, 0.68f, 0.45f));
+                frameSr.sortingOrder = -60;
+            }
+            frame.transform.localPosition = new Vector3(3.0f, 2.2f, 1.5f);
+            frame.transform.localScale = new Vector3(1.6f, 2.0f, 1f);
+
+            // 盆栽：左侧地面小装饰
+            var plant = EnsureChild(roomParent, "Plant");
+            var plantSr = plant.GetComponent<SpriteRenderer>();
+            if (plantSr == null)
+            {
+                plantSr = plant.AddComponent<SpriteRenderer>();
+                plantSr.sprite = MakePlaceholderSprite("room_plant", new Color(0.38f, 0.55f, 0.35f));
+                plantSr.sortingOrder = -50;
+            }
+            plant.transform.localPosition = new Vector3(-4.2f, -1.2f, 0.5f);
+            plant.transform.localScale = new Vector3(1.0f, 1.8f, 1f);
         }
 
         /// <summary>

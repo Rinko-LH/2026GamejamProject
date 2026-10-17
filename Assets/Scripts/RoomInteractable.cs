@@ -23,6 +23,12 @@ namespace RoomDemo
         public bool canInteract = true;
 
         /// <summary>
+        /// 是否有任意特写（画板/收拾）正在进行中。进行中时所有房间内互动一律不响应，
+        /// 避免与特写自己的输入处理抢同一个 E 事件（双重触发）。由各自特写管理器置位。
+        /// </summary>
+        public static bool CloseupActive { get; set; }
+
+        /// <summary>
         /// 主角是否在交互范围内。
         ///
         /// 关键：只比较<b>水平 X 距离</b>，不比较 Y。
@@ -64,6 +70,7 @@ namespace RoomDemo
 
         void HandleInteract()
         {
+            if (CloseupActive) return;
             if (PlayerInRange) Interact();
         }
 

@@ -9,7 +9,7 @@ namespace RoomDemo.UI
     /// 任务提示（S1，策划案 1.6）：订阅 Services.Progress.QuestCompleted，
     /// 把已完成的支线列在左下角，给玩家"今天还差什么"的进展感。
     /// </summary>
-    public class TaskHints : MonoBehaviour
+    public class TaskHints : MonoBehaviour, IResettable
     {
         Text _label;
         readonly List<string> _done = new List<string>();
@@ -49,6 +49,16 @@ namespace RoomDemo.UI
             if (_done.Contains(id)) return;
             _done.Add(id);
             _label.text = "支线进展：\n· " + string.Join("\n· ", _done);
+        }
+
+        /// <summary>
+        /// R 重开：清空支线列表（否则进度总线已清零，面板却继续追加旧条目——P3）。
+        /// </summary>
+        public void ResetForNewRun()
+        {
+            Build();
+            _done.Clear();
+            if (_label != null) _label.text = "支线进展：\n（暂无）";
         }
     }
 }
