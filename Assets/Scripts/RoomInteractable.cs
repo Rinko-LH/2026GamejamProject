@@ -13,6 +13,10 @@ namespace RoomDemo
     /// </summary>
     public abstract class RoomInteractable : MonoBehaviour
     {
+        /// <summary>The single room interaction that will receive the next E press.</summary>
+        public static MonoBehaviour CurrentTarget { get; private set; }
+        static int _selectionFrame = -1;
+
         [Tooltip("交互距离（只看水平方向，主角走到物品所在的列附近即可）")]
         public float interactRange = 1.4f;
 
@@ -53,6 +57,52 @@ namespace RoomDemo
 
         bool _inputSubscribed;
 
+        void EnsureOutline()
+        {
+            if (GetComponent<InteractionOutline>() == null)
+                gameObject.AddComponent<InteractionOutline>();
+        }
+
+        /// <summary>Choose the nearest valid room object or drawing board using the same X-range used by E.</summary>
+        public static void RefreshSelectionForInput()
+        {
+            if (_selectionFrame == Time.frameCount) return;
+            _selectionFrame = Time.frameCount;
+
+            MonoBehaviour best = null;
+            float bestDistance = float.PositiveInfinity;
+            var interactables = FindObjectsOfType<RoomInteractable>();
+            foreach (var item in interactables)
+            {
+                if (item == null || !item.isActiveAndEnabled || !item.canInteract || item.player == null) continue;
+                float distance = HorizontalDistance(item.player.position, item.transform.position);
+                if (distance >= item.interactRange || distance >= bestDistance) continue;
+                best = item;
+                bestDistance = distance;
+            }
+
+            var board = FindObjectOfType<DrawingBoardInteract>();
+            if (board != null && board.isActiveAndEnabled && board.player != null)
+            {
+                float distance = HorizontalDistance(board.player.position, board.transform.position);
+                if (distance < board.interactRange && distance < bestDistance)
+                    best = board;
+            }
+
+            CurrentTarget = CloseupActive ? null : best;
+            foreach (var item in interactables)
+                if (item != null) SetOutline(item, item == CurrentTarget);
+            if (board != null) SetOutline(board, board == CurrentTarget);
+        }
+
+        static void SetOutline(MonoBehaviour target, bool enabled)
+        {
+            if (target == null) return;
+            var outline = target.GetComponent<InteractionOutline>();
+            if (outline == null) outline = target.gameObject.AddComponent<InteractionOutline>();
+            outline.SetOutlined(enabled);
+        }
+
         /// <summary>
         /// 惰性订阅 InputManager 的 Interact 事件（策划案 1.7）。
         /// 场景加载时 InputManager 的 Awake 可能还没跑、Instance 为 null，
@@ -70,13 +120,15 @@ namespace RoomDemo
 
         void HandleInteract()
         {
-            if (CloseupActive) return;
-            if (PlayerInRange) Interact();
+            RefreshSelectionForInput();
+            if (!CloseupActive && CurrentTarget == this) Interact();
         }
 
         protected virtual void Update()
         {
+            EnsureOutline();
             EnsureInputSubscribed();
+            RefreshSelectionForInput();
         }
 
         void OnDestroy()

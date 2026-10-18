@@ -216,6 +216,8 @@ namespace RoomDemo
         void HandleInteract()
         {
             if (_inCloseup) return;
+            RoomInteractable.RefreshSelectionForInput();
+            if (RoomInteractable.CurrentTarget != this) return;
             if (player != null && IsNearBoard()) TryEnterPainting();
         }
 
