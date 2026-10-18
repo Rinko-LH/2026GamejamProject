@@ -44,8 +44,6 @@ namespace RoomDemo
             }
             _rb.freezeRotation = true;
             EnsureSpriteRenderer();
-            if (GetComponent<PlayerOcclusionSorting>() == null)
-                gameObject.AddComponent<PlayerOcclusionSorting>();
             SetFacing(Vector2.down);
         }
 

@@ -275,7 +275,7 @@ namespace RoomDemo
 
             if (boards == null || boards.Length == 0)
             {
-                Debug.LogWarning("[画板] 尚未装配三块画板，请运行菜单 GameJam/SetupDrawingBoard");
+                Debug.LogWarning("[画板] 未配置三块画板引用，请在 TestScene 的 DrawingBoard 组件检查 boards 数组");
                 return;
             }
 
