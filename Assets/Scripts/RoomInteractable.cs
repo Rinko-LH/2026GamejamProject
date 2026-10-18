@@ -13,11 +13,12 @@ namespace RoomDemo
     /// </summary>
     public abstract class RoomInteractable : MonoBehaviour
     {
+        const float ShadowSelectionRadius = 1.5f;
         /// <summary>The single room interaction that will receive the next E press.</summary>
         public static MonoBehaviour CurrentTarget { get; private set; }
         static int _selectionFrame = -1;
 
-        [Tooltip("交互距离（只看水平方向，主角走到物品所在的列附近即可）")]
+        [Tooltip("玩家与物品边界之间允许的最大交互距离")]
         public float interactRange = 1.4f;
 
         [Tooltip("主角。只用到位置，不要求特定控制器。")]
@@ -33,26 +34,59 @@ namespace RoomDemo
         public static bool CloseupActive { get; set; }
 
         /// <summary>
-        /// 主角是否在交互范围内。
-        ///
-        /// 关键：只比较<b>水平 X 距离</b>，不比较 Y。
-        /// 因为透视手绘场景里，桌面上的家具 Y 值明显高于角色地面 Y，
-        /// 这是固定存在的纵向差，用二维距离判定的话无论怎么走近都够不到，
-        /// E 永远没反应。
+        /// 主角是否足够接近物品。距离按物体碰撞体或可见图像边缘计算，
+        /// 避免用家具中心点导致大型物品不易触发。
         /// </summary>
         public bool PlayerInRange
         {
             get
             {
                 if (!canInteract || player == null) return false;
-                return HorizontalDistance(player.position, transform.position) < interactRange;
+                return InteractionDistance(player, transform) < interactRange;
             }
         }
 
-        /// <summary>只算 X 方向的距离（该视角下 X 就是房间左右）。</summary>
-        public static float HorizontalDistance(Vector3 a, Vector3 b)
+        /// <summary>计算玩家碰撞体到目标碰撞体/可见边界的二维间距。</summary>
+        public static float InteractionDistance(Transform player, Transform target)
         {
-            return Mathf.Abs(a.x - b.x);
+            if (player == null || target == null) return float.PositiveInfinity;
+
+            var playerCollider = player.GetComponent<Collider2D>() ?? player.GetComponentInChildren<Collider2D>();
+            var targetCollider = target.GetComponent<Collider2D>() ?? target.GetComponentInChildren<Collider2D>();
+            Vector2 playerPosition = player.position;
+            Vector2 targetPoint;
+
+            if (targetCollider != null)
+            {
+                targetPoint = targetCollider.ClosestPoint(playerPosition);
+            }
+            else
+            {
+                var renderers = target.GetComponentsInChildren<SpriteRenderer>();
+                bool hasBounds = false;
+                Bounds bounds = default;
+                foreach (var renderer in renderers)
+                {
+                    if (renderer == null) continue;
+                    if (!hasBounds)
+                    {
+                        bounds = renderer.bounds;
+                        hasBounds = true;
+                    }
+                    else bounds.Encapsulate(renderer.bounds);
+                }
+
+                if (!hasBounds) targetPoint = target.position;
+                else
+                {
+                    targetPoint = bounds.ClosestPoint(playerPosition);
+                }
+            }
+
+            Vector2 playerPoint = playerCollider != null
+                ? playerCollider.ClosestPoint(targetPoint)
+                : playerPosition;
+            return Vector2.Distance(playerPoint, targetPoint);
         }
 
         bool _inputSubscribed;
@@ -63,7 +97,7 @@ namespace RoomDemo
                 gameObject.AddComponent<InteractionOutline>();
         }
 
-        /// <summary>Choose the nearest valid room object or drawing board using the same X-range used by E.</summary>
+        /// <summary>选择玩家当前朝向前方、且在交互范围内最近的物品或画板。</summary>
         public static void RefreshSelectionForInput()
         {
             if (_selectionFrame == Time.frameCount) return;
@@ -72,20 +106,24 @@ namespace RoomDemo
             MonoBehaviour best = null;
             float bestDistance = float.PositiveInfinity;
             var interactables = FindObjectsOfType<RoomInteractable>();
+            var shadow = GameObject.Find("Shadow");
+            Vector2 shadowPosition = shadow != null ? (Vector2)shadow.transform.position : Vector2.zero;
             foreach (var item in interactables)
             {
                 if (item == null || !item.isActiveAndEnabled || !item.canInteract || item.player == null) continue;
-                float distance = HorizontalDistance(item.player.position, item.transform.position);
-                if (distance >= item.interactRange || distance >= bestDistance) continue;
+                if (shadow == null || !IsWithinShadowRange(shadowPosition, item.transform)) continue;
+                float distance = InteractionDistance(item.player, item.transform);
+                if (distance >= item.interactRange || distance >= bestDistance || !IsInFront(item.player, item.transform)) continue;
                 best = item;
                 bestDistance = distance;
             }
 
             var board = FindObjectOfType<DrawingBoardInteract>();
-            if (board != null && board.isActiveAndEnabled && board.player != null)
+            if (shadow != null && board != null && board.isActiveAndEnabled && board.player != null
+                && IsWithinShadowRange(shadowPosition, board.transform))
             {
-                float distance = HorizontalDistance(board.player.position, board.transform.position);
-                if (distance < board.interactRange && distance < bestDistance)
+                float distance = InteractionDistance(board.player, board.transform);
+                if (distance < board.interactRange && distance < bestDistance && IsInFront(board.player, board.transform))
                     best = board;
             }
 
@@ -93,6 +131,48 @@ namespace RoomDemo
             foreach (var item in interactables)
                 if (item != null) SetOutline(item, item == CurrentTarget);
             if (board != null) SetOutline(board, board == CurrentTarget);
+        }
+
+        static bool IsWithinShadowRange(Vector2 shadowPosition, Transform target)
+        {
+            return target != null
+                && ((Vector2)target.position - shadowPosition).sqrMagnitude <= ShadowSelectionRadius * ShadowSelectionRadius;
+        }
+
+        static bool IsInFront(Transform player, Transform target)
+        {
+            var movement = player != null ? player.GetComponent<Simple2DMovement>() : null;
+            if (movement == null || target == null) return true;
+
+            // Test facing against the nearest point on the target, not its pivot.
+            // Large furniture can have a pivot far from the side the player is standing at,
+            // which otherwise makes a nearby object appear behind a farther target.
+            Vector2 playerPosition = player.position;
+            var collider = target.GetComponent<Collider2D>() ?? target.GetComponentInChildren<Collider2D>();
+            Vector2 targetPoint;
+            if (collider != null)
+            {
+                targetPoint = collider.ClosestPoint(playerPosition);
+            }
+            else
+            {
+                var renderers = target.GetComponentsInChildren<SpriteRenderer>();
+                bool hasBounds = false;
+                Bounds bounds = default;
+                foreach (var renderer in renderers)
+                {
+                    if (renderer == null) continue;
+                    if (!hasBounds) { bounds = renderer.bounds; hasBounds = true; }
+                    else bounds.Encapsulate(renderer.bounds);
+                }
+                targetPoint = hasBounds ? bounds.ClosestPoint(playerPosition) : (Vector2)target.position;
+            }
+
+            Vector2 toTarget = targetPoint - playerPosition;
+            // Allow a modest forward cone while rejecting targets that are merely
+            // somewhere in the front half-plane.
+            return toTarget.sqrMagnitude <= 0.0001f
+                || Vector2.Dot(movement.FacingDirection, toTarget.normalized) > 0.35f;
         }
 
         static void SetOutline(MonoBehaviour target, bool enabled)

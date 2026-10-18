@@ -39,7 +39,7 @@ namespace RoomDemo
         [Header("找画笔")]
         public bool hasBrush;
 
-        [Tooltip("交互距离（只看水平方向）")]
+        [Tooltip("玩家与画板边界之间允许的最大交互距离")]
         public float interactRange = 1.6f;
 
         [Header("房间显隐")]
@@ -229,12 +229,12 @@ namespace RoomDemo
 
         /// <summary>
         /// 判断主角是否走到画板附近。
-        /// 只比 X：画板挂在桌面上方，Y 比角色可达上限高出 1.3，二维距离永远够不到。
+        /// 使用碰撞体或可见边界测距，避免只按横向位置触发。
         /// </summary>
         bool IsNearBoard()
         {
             if (player == null) return false;
-            return Mathf.Abs(player.position.x - transform.position.x) < interactRange;
+            return RoomInteractable.InteractionDistance(player, transform) < interactRange;
         }
 
         /// <summary>

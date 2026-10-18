@@ -106,7 +106,18 @@ namespace RoomDemo
             {
                 // 玩家被藏起来（比如进了画板特写）时，一切提示都不该出现
                 if (player == null || !player.gameObject.activeInHierarchy) return false;
-                return Mathf.Abs(player.position.x - transform.position.x) < triggerRange;
+
+                // 有交互组件时只提示当前朝向所选中的目标，避免附近多个物品同时发光。
+                var roomTarget = GetComponent<RoomInteractable>();
+                var boardTarget = GetComponent<DrawingBoardInteract>();
+                if (roomTarget != null || boardTarget != null)
+                {
+                    RoomInteractable.RefreshSelectionForInput();
+                    return (roomTarget != null && RoomInteractable.CurrentTarget == roomTarget)
+                        || (boardTarget != null && RoomInteractable.CurrentTarget == boardTarget);
+                }
+
+                return RoomInteractable.InteractionDistance(player, transform) < triggerRange;
             }
         }
 

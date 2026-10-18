@@ -16,7 +16,15 @@ namespace RoomDemo
     {
         public float moveSpeed = 5f;
 
+        [Header("四向角色精灵")]
+        public Sprite upSprite;
+        public Sprite downSprite;
+        public Sprite leftSprite;
+        public Sprite rightSprite;
+
         Rigidbody2D _rb;
+        SpriteRenderer _spriteRenderer;
+        public Vector2 FacingDirection { get; private set; } = Vector2.down;
 
         void Awake()
         {
@@ -33,6 +41,38 @@ namespace RoomDemo
                 _rb.gravityScale = 0f;
             }
             _rb.freezeRotation = true;
+            EnsureSpriteRenderer();
+            if (GetComponent<PlayerOcclusionSorting>() == null)
+                gameObject.AddComponent<PlayerOcclusionSorting>();
+            SetFacing(Vector2.down);
+        }
+
+        void EnsureSpriteRenderer()
+        {
+            if (_spriteRenderer != null) return;
+            var body = transform.Find("Body");
+            _spriteRenderer = body != null ? body.GetComponent<SpriteRenderer>() : null;
+            if (_spriteRenderer == null) _spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        }
+
+        void SetFacing(Vector2 direction)
+        {
+            EnsureSpriteRenderer();
+            if (_spriteRenderer == null) return;
+
+            Sprite facingSprite;
+            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+            {
+                FacingDirection = direction.x < 0f ? Vector2.left : Vector2.right;
+                facingSprite = direction.x < 0f ? leftSprite : rightSprite;
+            }
+            else
+            {
+                FacingDirection = direction.y < 0f ? Vector2.down : Vector2.up;
+                facingSprite = direction.y < 0f ? downSprite : upSprite;
+            }
+
+            if (facingSprite != null) _spriteRenderer.sprite = facingSprite;
         }
 
         void FixedUpdate()
@@ -41,6 +81,7 @@ namespace RoomDemo
             EnsureRb();
             var move = InputManager.Instance != null ? InputManager.Instance.Move : Vector2.zero;
             var dir = new Vector3(move.x, move.y, 0f).normalized;
+            if (move.sqrMagnitude > 0.0001f) SetFacing(move);
             // S8 低落表现：状态低落（任一 <20%）时移速 -20%，经契约层自查
             float speed = moveSpeed;
             var stats = RoomDemo.Contracts.Services.Stats;
