@@ -967,7 +967,7 @@ Transform:
   m_GameObject: {fileID: 247609364}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -8.740003, y: -3.3300972, z: 0}
+  m_LocalPosition: {x: -13.34, y: -3.3300972, z: 0}
   m_LocalScale: {x: 0.9, y: 1.4, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1455,12 +1455,12 @@ Transform:
   m_GameObject: {fileID: 539426970}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -35.34956, y: -5.72, z: -2}
+  m_LocalPosition: {x: 17.84, y: -52.77, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1011449248}
-  m_Father: {fileID: 1872098933}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &539426974
 MonoBehaviour:
@@ -1929,11 +1929,11 @@ Transform:
   m_GameObject: {fileID: 615214600}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -26.265322, y: 0.051418304, z: -2}
+  m_LocalPosition: {x: 29.02, y: -50.73868, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1872098933}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &615214602
 SpriteRenderer:
@@ -3970,11 +3970,11 @@ Transform:
   m_GameObject: {fileID: 1066328845}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -36.65326, y: 3.9468956, z: -2}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.05828619, y: -0.86645997, z: 0}
+  m_LocalScale: {x: 0.625, y: 0.90909094, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1872098933}
+  m_Father: {fileID: 1663953457}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1066328847
 SpriteRenderer:
@@ -5330,11 +5330,11 @@ Transform:
   m_GameObject: {fileID: 1621536473}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -36.93, y: -0.34, z: 0}
+  m_LocalPosition: {x: 13.52, y: -51.1301, z: 2}
   m_LocalScale: {x: 1.36, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1872098933}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1621536475
 SpriteRenderer:
@@ -5626,11 +5626,12 @@ Transform:
   m_GameObject: {fileID: 1663953454}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.3399992, y: 6.6899033, z: 0}
+  m_LocalPosition: {x: 1.55, y: 6.6899033, z: 0}
   m_LocalScale: {x: 1.6, y: 1.1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1946230725}
+  - {fileID: 1066328846}
   m_Father: {fileID: 1897622085}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1663953459
@@ -6324,41 +6325,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!1 &1872098932
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1872098933}
-  m_Layer: 0
-  m_Name: "\u573A\u666F"
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1872098933
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1872098932}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 50.45, y: -50.7901, z: 2}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1621536474}
-  - {fileID: 539426971}
-  - {fileID: 1066328846}
-  - {fileID: 615214601}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1897622084
 GameObject:
   m_ObjectHideFlags: 0
@@ -6883,7 +6849,7 @@ GameObject:
   - component: {fileID: 2129875898}
   - component: {fileID: 2129875897}
   m_Layer: 0
-  m_Name: "\u4E66\u67B6"
+  m_Name: bookshelf
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7413,4 +7379,6 @@ SceneRoots:
   - {fileID: 1897622085}
   - {fileID: 648353602}
   - {fileID: 251285182}
-  - {fileID: 1872098933}
+  - {fileID: 1621536474}
+  - {fileID: 539426971}
+  - {fileID: 615214601}
