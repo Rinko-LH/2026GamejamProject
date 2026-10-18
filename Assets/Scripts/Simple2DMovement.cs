@@ -16,11 +16,13 @@ namespace RoomDemo
     {
         public float moveSpeed = 5f;
 
-        [Header("四向角色精灵")]
+        [Header("角色精灵（上 / 下左右）")]
         public Sprite upSprite;
         public Sprite downSprite;
-        public Sprite leftSprite;
-        public Sprite rightSprite;
+
+        [Header("交互范围")]
+        [Tooltip("玩家脚边的检测碰撞箱；留空时使用 Player 根物体上的 Collider2D")]
+        public Collider2D interactionProbe;
 
         Rigidbody2D _rb;
         SpriteRenderer _spriteRenderer;
@@ -61,10 +63,12 @@ namespace RoomDemo
             if (_spriteRenderer == null) return;
 
             Sprite facingSprite;
+            bool flipX = false;
             if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
             {
                 FacingDirection = direction.x < 0f ? Vector2.left : Vector2.right;
-                facingSprite = direction.x < 0f ? leftSprite : rightSprite;
+                facingSprite = downSprite;
+                flipX = direction.x < 0f;
             }
             else
             {
@@ -73,6 +77,7 @@ namespace RoomDemo
             }
 
             if (facingSprite != null) _spriteRenderer.sprite = facingSprite;
+            _spriteRenderer.flipX = flipX;
         }
 
         void FixedUpdate()

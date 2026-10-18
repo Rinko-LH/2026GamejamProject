@@ -159,26 +159,7 @@ namespace RoomDemo
             if (boardSr.sprite == null)
                 boardSr.sprite = MakePlaceholderSprite("board", new Color(0.93f, 0.91f, 0.86f));
 
-            // ---- 4. 交互提示组件 ----
-            // 画板节点原本只是个空壳，玩家看不见也摸不着，
-            // 必须给它一个可见的标记，靠近了还要高亮闪烁。
-            //
-            // 注意：highlightTargets 必须显式指定为画板本体那一个渲染器。
-            // 不指定的话 Awake 会自动收集子物体下所有渲染器——三块画板的
-            // 外框/画布会被一起卷进呼吸高亮，和 PaintingBoard 自己的
-            // 悬停/达标配色打架。
-            var hint = boardGo.GetComponent<InteractionHint>();
-            if (hint == null) hint = boardGo.AddComponent<InteractionHint>();
-            hint.player = player;
-            hint.triggerRange = 1.2f;   // 与 DrawingBoardInteract.interactRange 一致
-
-            var soHint = new SerializedObject(hint);
-            var hintTargets = soHint.FindProperty("highlightTargets");
-            hintTargets.arraySize = 1;
-            hintTargets.GetArrayElementAtIndex(0).objectReferenceValue = boardSr;
-            soHint.ApplyModifiedPropertiesWithoutUndo();
-
-            // ---- 5. 三块画板（只在特写里可见） ----
+            // ---- 4. 三块画板（只在特写里可见） ----
             var containerGo = boardGo.transform.Find("PaintingBoards")?.gameObject;
             if (containerGo == null)
             {
@@ -263,7 +244,6 @@ namespace RoomDemo
                 boardsProp.GetArrayElementAtIndex(i).objectReferenceValue = boards[i];
 
             so.FindProperty("boardMarker").objectReferenceValue = boardSr;
-            so.FindProperty("hint").objectReferenceValue = hint;
             so.FindProperty("mainCamera").objectReferenceValue = FindOrthoCamera();
             // 交互区间 1.2：与两侧（桌面 -2.2 / 水源 2.2）刚好错开，不重叠
             so.FindProperty("interactRange").floatValue = 1.2f;
@@ -324,17 +304,6 @@ namespace RoomDemo
             visuals.arraySize = 1;
             visuals.GetArrayElementAtIndex(0).objectReferenceValue = brushSr;
             soBrush.ApplyModifiedPropertiesWithoutUndo();
-
-            // 画笔也加交互提示，靠近时高亮
-            var brushHint = brushGo.GetComponent<InteractionHint>();
-            if (brushHint == null) brushHint = brushGo.AddComponent<InteractionHint>();
-            brushHint.player = player;
-            brushHint.triggerRange = brush.interactRange;
-            var brushHintTargets = new SerializedObject(brushHint);
-            var targets = brushHintTargets.FindProperty("highlightTargets");
-            targets.arraySize = 1;
-            targets.GetArrayElementAtIndex(0).objectReferenceValue = brushSr;
-            brushHintTargets.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- 7.5 吃早餐（S5，策划案 3.4） ----
             // 正式支线替代 Demo 道具：饱食 +50 / 15 游戏分钟 / 上报 Breakfast。

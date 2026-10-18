@@ -22,6 +22,9 @@ namespace RoomDemo
         public Transform player;
         [Tooltip("三块画板，数组顺序即画作序号 1~3")]
         public PaintingBoard[] boards;
+        [Header("交互范围")]
+        [Tooltip("独立的 Is Trigger 碰撞箱；留空时从自身及子物体中查找第一个 Trigger")]
+        public Collider2D interactionZone;
         [Tooltip("房间里桌上那块画板色块，进特写时隐藏")]
         public SpriteRenderer boardMarker;
         public Camera mainCamera;
@@ -39,15 +42,12 @@ namespace RoomDemo
         [Header("找画笔")]
         public bool hasBrush;
 
-        [Tooltip("玩家与画板边界之间允许的最大交互距离")]
+        [Tooltip("已保留用于旧场景兼容；交互范围由画板上的 Collider2D 决定")]
         public float interactRange = 1.6f;
 
         [Header("房间显隐")]
         [Tooltip("房间手绘图根节点。进画板特写时整体隐藏、退出时恢复。留空则回退按名字查找 RoomWorld（旧装配兼容）")]
         public Transform roomRoot;
-
-        [Header("交互提示")]
-        public InteractionHint hint;
 
         /// <summary>进入画板特写时触发。</summary>
         public event System.Action EnteredPaintingMode;
@@ -234,7 +234,7 @@ namespace RoomDemo
         bool IsNearBoard()
         {
             if (player == null) return false;
-            return RoomInteractable.InteractionDistance(player, transform) < interactRange;
+            return RoomInteractable.IsPlayerOverlappingTarget(player, transform);
         }
 
         /// <summary>

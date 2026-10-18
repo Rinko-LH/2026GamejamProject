@@ -13,16 +13,19 @@ namespace RoomDemo
     /// </summary>
     public abstract class RoomInteractable : MonoBehaviour
     {
-        const float ShadowSelectionRadius = 1.5f;
         /// <summary>The single room interaction that will receive the next E press.</summary>
         public static MonoBehaviour CurrentTarget { get; private set; }
         static int _selectionFrame = -1;
 
-        [Tooltip("玩家与物品边界之间允许的最大交互距离")]
+        [Tooltip("已保留用于旧场景兼容；交互范围由物体上的 Collider2D 决定")]
         public float interactRange = 1.4f;
 
         [Tooltip("主角。只用到位置，不要求特定控制器。")]
         public Transform player;
+
+        [Header("交互范围")]
+        [Tooltip("独立的 Is Trigger 碰撞箱；留空时从自身及子物体中查找第一个 Trigger")]
+        public Collider2D interactionZone;
 
         /// <summary>是否还能交互。被拿走的物品要能主动失效。</summary>
         public bool canInteract = true;
@@ -42,8 +45,43 @@ namespace RoomDemo
             get
             {
                 if (!canInteract || player == null) return false;
-                return InteractionDistance(player, transform) < interactRange;
+                return IsPlayerOverlappingTarget(player, transform);
             }
+        }
+
+        /// <summary>玩家任一启用的 2D 碰撞体与目标任一启用碰撞体重叠时，视为进入交互范围。</summary>
+        public static bool IsPlayerOverlappingTarget(Transform player, Transform target)
+        {
+            if (player == null || target == null) return false;
+            var movement = player.GetComponent<Simple2DMovement>();
+            var playerCollider = movement != null && movement.interactionProbe != null
+                ? movement.interactionProbe
+                : player.GetComponent<Collider2D>();
+            var targetCollider = GetInteractionZone(target);
+            if (playerCollider == null || targetCollider == null || !targetCollider.isTrigger) return false;
+            if (!playerCollider.enabled || !playerCollider.gameObject.activeInHierarchy
+                || !targetCollider.enabled || !targetCollider.gameObject.activeInHierarchy) return false;
+            return Physics2D.Distance(playerCollider, targetCollider).isOverlapped;
+        }
+
+        static Collider2D GetInteractionZone(Transform target)
+        {
+            if (target == null) return null;
+            var roomTarget = target.GetComponent<RoomInteractable>();
+            if (roomTarget != null && roomTarget.interactionZone != null) return roomTarget.interactionZone;
+            var boardTarget = target.GetComponent<DrawingBoardInteract>();
+            if (boardTarget != null && boardTarget.interactionZone != null) return boardTarget.interactionZone;
+            foreach (var collider in target.GetComponentsInChildren<Collider2D>())
+                if (collider != null && collider.isTrigger) return collider;
+            return null;
+        }
+
+        static Collider2D GetPlayerCollider(Transform player)
+        {
+            if (player == null) return null;
+            var movement = player.GetComponent<Simple2DMovement>();
+            if (movement != null && movement.interactionProbe != null) return movement.interactionProbe;
+            return player.GetComponent<Collider2D>();
         }
 
         /// <summary>计算玩家碰撞体到目标碰撞体/可见边界的二维间距。</summary>
@@ -51,8 +89,8 @@ namespace RoomDemo
         {
             if (player == null || target == null) return float.PositiveInfinity;
 
-            var playerCollider = player.GetComponent<Collider2D>() ?? player.GetComponentInChildren<Collider2D>();
-            var targetCollider = target.GetComponent<Collider2D>() ?? target.GetComponentInChildren<Collider2D>();
+            var playerCollider = GetPlayerCollider(player);
+            var targetCollider = GetInteractionZone(target);
             Vector2 playerPosition = player.position;
             Vector2 targetPoint;
 
@@ -105,26 +143,34 @@ namespace RoomDemo
 
             MonoBehaviour best = null;
             float bestDistance = float.PositiveInfinity;
+            float bestFacing = float.NegativeInfinity;
             var interactables = FindObjectsOfType<RoomInteractable>();
-            var shadow = GameObject.Find("Shadow");
-            Vector2 shadowPosition = shadow != null ? (Vector2)shadow.transform.position : Vector2.zero;
             foreach (var item in interactables)
             {
                 if (item == null || !item.isActiveAndEnabled || !item.canInteract || item.player == null) continue;
-                if (shadow == null || !IsWithinShadowRange(shadowPosition, item.transform)) continue;
+                if (!IsPlayerOverlappingTarget(item.player, item.transform)) continue;
                 float distance = InteractionDistance(item.player, item.transform);
-                if (distance >= item.interactRange || distance >= bestDistance || !IsInFront(item.player, item.transform)) continue;
+                float facing = FacingAlignment(item.player, item.transform);
+                if (facing <= 0.35f || facing < bestFacing
+                    || (Mathf.Approximately(facing, bestFacing) && distance >= bestDistance)) continue;
                 best = item;
                 bestDistance = distance;
+                bestFacing = facing;
             }
 
             var board = FindObjectOfType<DrawingBoardInteract>();
-            if (shadow != null && board != null && board.isActiveAndEnabled && board.player != null
-                && IsWithinShadowRange(shadowPosition, board.transform))
+            if (board != null && board.isActiveAndEnabled && board.player != null
+                && IsPlayerOverlappingTarget(board.player, board.transform))
             {
                 float distance = InteractionDistance(board.player, board.transform);
-                if (distance < board.interactRange && distance < bestDistance && IsInFront(board.player, board.transform))
+                float facing = FacingAlignment(board.player, board.transform);
+                if (facing > 0.35f && (facing > bestFacing
+                    || (Mathf.Approximately(facing, bestFacing) && distance < bestDistance)))
+                {
                     best = board;
+                    bestDistance = distance;
+                    bestFacing = facing;
+                }
             }
 
             CurrentTarget = CloseupActive ? null : best;
@@ -133,46 +179,19 @@ namespace RoomDemo
             if (board != null) SetOutline(board, board == CurrentTarget);
         }
 
-        static bool IsWithinShadowRange(Vector2 shadowPosition, Transform target)
-        {
-            return target != null
-                && ((Vector2)target.position - shadowPosition).sqrMagnitude <= ShadowSelectionRadius * ShadowSelectionRadius;
-        }
-
-        static bool IsInFront(Transform player, Transform target)
+        static float FacingAlignment(Transform player, Transform target)
         {
             var movement = player != null ? player.GetComponent<Simple2DMovement>() : null;
-            if (movement == null || target == null) return true;
+            if (target == null) return float.NegativeInfinity;
+            if (movement == null) return 1f;
 
-            // Test facing against the nearest point on the target, not its pivot.
-            // Large furniture can have a pivot far from the side the player is standing at,
-            // which otherwise makes a nearby object appear behind a farther target.
-            Vector2 playerPosition = player.position;
-            var collider = target.GetComponent<Collider2D>() ?? target.GetComponentInChildren<Collider2D>();
-            Vector2 targetPoint;
-            if (collider != null)
-            {
-                targetPoint = collider.ClosestPoint(playerPosition);
-            }
-            else
-            {
-                var renderers = target.GetComponentsInChildren<SpriteRenderer>();
-                bool hasBounds = false;
-                Bounds bounds = default;
-                foreach (var renderer in renderers)
-                {
-                    if (renderer == null) continue;
-                    if (!hasBounds) { bounds = renderer.bounds; hasBounds = true; }
-                    else bounds.Encapsulate(renderer.bounds);
-                }
-                targetPoint = hasBounds ? bounds.ClosestPoint(playerPosition) : (Vector2)target.position;
-            }
-
-            Vector2 toTarget = targetPoint - playerPosition;
-            // Allow a modest forward cone while rejecting targets that are merely
-            // somewhere in the front half-plane.
-            return toTarget.sqrMagnitude <= 0.0001f
-                || Vector2.Dot(movement.FacingDirection, toTarget.normalized) > 0.35f;
+            // Use the interaction box center. Its closest point is the player itself
+            // while overlapping, which would incorrectly make every box count as facing.
+            var collider = GetInteractionZone(target);
+            Vector2 targetPoint = collider != null ? (Vector2)collider.bounds.center : (Vector2)target.position;
+            Vector2 toTarget = targetPoint - (Vector2)player.position;
+            return toTarget.sqrMagnitude <= 0.0001f ? 1f
+                : Vector2.Dot(movement.FacingDirection, toTarget.normalized);
         }
 
         static void SetOutline(MonoBehaviour target, bool enabled)
