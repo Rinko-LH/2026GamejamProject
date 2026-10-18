@@ -106,3 +106,5 @@ Assets/Resources/TaptapPublicKey.txt*
 .vsconfig
 Assets/RoomDemo/
 Assets/RoomDemo.meta
+
+.agents
