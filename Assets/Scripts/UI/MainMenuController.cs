@@ -1,7 +1,5 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
-using TMPro;
 
 namespace RoomDemo.UI
 {
@@ -10,29 +8,11 @@ namespace RoomDemo.UI
     {
         [SerializeField] string gameSceneName = "MainScene";
         [SerializeField] GameObject creditsPanel;
-        [SerializeField] Font menuFont;
 
         void Awake()
         {
-            // Convert these menu labels to legacy Text so the imported project font
-            // can render Chinese without depending on a machine-installed font.
-            var canvas = FindObjectOfType<Canvas>();
-            if (canvas == null) return;
-            foreach (var tmp in canvas.GetComponentsInChildren<TMP_Text>(true))
-            {
-                if (tmp == null) continue;
-                var label = tmp.GetComponent<Text>();
-                if (label == null) label = tmp.gameObject.AddComponent<Text>();
-                label.font = menuFont != null ? menuFont : UIBuild.GetDefaultFont(32);
-                label.text = tmp.text;
-                label.fontSize = Mathf.Max(1, Mathf.RoundToInt(tmp.fontSize));
-                label.color = tmp.color;
-                label.alignment = TextAnchor.MiddleCenter;
-                label.horizontalOverflow = HorizontalWrapMode.Wrap;
-                label.verticalOverflow = VerticalWrapMode.Truncate;
-                label.raycastTarget = false;
-                tmp.enabled = false;
-            }
+            // 菜单文本已在场景中配置 TMP 字体资源；不要再添加旧版 UI.Text，
+            // 因为 TMP_Text 同样是 Graphic，同一个 GameObject 不能同时拥有两者。
             if (creditsPanel != null) creditsPanel.SetActive(false);
         }
 
