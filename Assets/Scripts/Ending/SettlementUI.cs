@@ -1,7 +1,8 @@
 using RoomDemo.Contracts;
 using RoomDemo.Input;
-using RoomDemo.UI;
+using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace RoomDemo.Ending
@@ -15,13 +16,14 @@ namespace RoomDemo.Ending
     /// 确认后才经 Services.Flow.ResetRun() 重开——GameManager 已摘除 R 直连
     /// （IGameFlow.ResetRun），R 只在这里生效，防误触。
     ///
-    /// UI 全部 Start 里用 UIBuild 自建（占位期系统字体），默认整面板隐藏，
-    /// 只认 Services.Flow.StateChanged 边缘显隐。
+    /// UI 在场景层级中制作，脚本只填充本局数据、处理按钮与控制面板显隐。
+    /// 默认整面板隐藏，只认 Services.Flow.StateChanged 边缘显隐。
     /// </summary>
     public class SettlementUI : MonoBehaviour, IResettable
     {
         GameObject _root;
-        Text _title, _line, _stats, _hint, _confirm;
+        TMP_Text _title, _line, _stats, _hint, _confirm;
+        Button _mainMenuButton;
         bool _built;
         bool _confirming;
         bool _subscribedFlow;
@@ -38,39 +40,28 @@ namespace RoomDemo.Ending
             if (_built) return;
             _built = true;
 
-            // 宿主是 UIRoot 下居中的零尺寸 RectTransform（装配 EnsureUiHost）。
-            // 全屏 Root 直接给 1920×1080（CanvasScaler 参考分辨率），居中即满屏。
-            _root = new GameObject("Root");
-            _root.transform.SetParent(transform, false);
-            var rootRt = _root.AddComponent<RectTransform>();
-            rootRt.anchorMin = rootRt.anchorMax = new Vector2(0.5f, 0.5f);
-            rootRt.pivot = new Vector2(0.5f, 0.5f);
-            rootRt.anchoredPosition = Vector2.zero;
-            rootRt.sizeDelta = new Vector2(1920f, 1080f);
-
-            // 半透明压暗底
-            UIBuild.Image(_root.transform, "Dim", new Color(0f, 0f, 0f, 0.78f),
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-960f, -540f), new Vector2(960f, 540f));
-
-            // 中央信息板 980×760
-            var box = UIBuild.Image(_root.transform, "Box", new Color(0.10f, 0.12f, 0.18f, 0.97f),
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-490f, -380f), new Vector2(490f, 380f));
-            var boxT = box.transform;
-
-            _title = UIBuild.Text(boxT, "Title", 76, TextAnchor.MiddleCenter, Color.white,
-                new Vector2(0.5f, 1f), new Vector2(0f, -50f), new Vector2(900f, 110f));
-            _line = UIBuild.Text(boxT, "Line", 40, TextAnchor.MiddleCenter, new Color(1f, 0.88f, 0.70f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(900f, 120f));
-            _stats = UIBuild.Text(boxT, "Stats", 36, TextAnchor.MiddleLeft, Color.white,
-                new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(880f, 360f));
-            _hint = UIBuild.Text(boxT, "Hint", 36, TextAnchor.MiddleCenter, new Color(0.75f, 0.78f, 0.85f),
-                new Vector2(0.5f, 0f), new Vector2(0f, 36f), new Vector2(900f, 56f));
-            _hint.text = "按 R 重开一局";
-
-            _confirm = UIBuild.Text(boxT, "Confirm", 44, TextAnchor.MiddleCenter, new Color(1f, 0.90f, 0.40f),
-                new Vector2(0.5f, 0f), new Vector2(0f, 36f), new Vector2(900f, 120f));
+            var root = transform.Find("Root");
+            _root = root != null ? root.gameObject : null;
+            if (_root == null)
+            {
+                Debug.LogError("[结算界面] 缺少场景 UI 子物体 Root。", this);
+                return;
+            }
+            _title = root.Find("Title")?.GetComponent<TMP_Text>();
+            _line = root.Find("Line")?.GetComponent<TMP_Text>();
+            _stats = root.Find("Stats")?.GetComponent<TMP_Text>();
+            _hint = root.Find("Hint")?.GetComponent<TMP_Text>();
+            _confirm = root.Find("Confirm")?.GetComponent<TMP_Text>();
+            var buttonTransform = root.Find("MainMenuButton");
+            _mainMenuButton = buttonTransform != null ? buttonTransform.GetComponent<Button>() : null;
+            if (_title == null || _line == null || _stats == null || _hint == null || _confirm == null || _mainMenuButton == null)
+            {
+                Debug.LogError("[结算界面] Root 下需要 Title、Line、Stats、Hint、Confirm 和 MainMenuButton 场景 UI 子物体。", this);
+                return;
+            }
+            _mainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+            _mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+            _hint.text = "按 R 重开一局（调试）";
             _confirm.text = "要重开一局吗？\n空格 确认 ／ Esc 取消";
             _confirm.gameObject.SetActive(false);
 
@@ -208,7 +199,19 @@ namespace RoomDemo.Ending
 
             _confirming = true;
             if (_hint != null) _hint.gameObject.SetActive(false);
+            if (_mainMenuButton != null) _mainMenuButton.gameObject.SetActive(false);
             if (_confirm != null) _confirm.gameObject.SetActive(true);
+        }
+
+        void ReturnToMainMenu()
+        {
+            const string mainMenuScene = "MainMenu";
+            if (!Application.CanStreamedLevelBeLoaded(mainMenuScene))
+            {
+                Debug.LogError($"[结算] 主菜单场景未加入 Build Settings 或名称无效：{mainMenuScene}");
+                return;
+            }
+            SceneManager.LoadScene(mainMenuScene);
         }
 
         void OnConfirm()
@@ -230,6 +233,7 @@ namespace RoomDemo.Ending
         {
             _confirming = false;
             if (_hint != null) _hint.gameObject.SetActive(true);
+            if (_mainMenuButton != null) _mainMenuButton.gameObject.SetActive(true);
             if (_confirm != null) _confirm.gameObject.SetActive(false);
         }
 

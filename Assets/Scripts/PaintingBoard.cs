@@ -27,6 +27,10 @@ namespace RoomDemo
         public SpriteRenderer barBackground;
         public SpriteRenderer barFill;
 
+        [Header("外观")]
+        [Tooltip("画画特写中显示 Frame 外框；关闭可避免外框底板遮住画布")]
+        public bool showFrameInCloseup;
+
         [Header("外框配色")]
         public Color normalColor = new Color32(0x8A, 0x62, 0x42, 0xFF);   // 木框
         public Color hoverColor = new Color32(0xE0, 0xA8, 0x3C, 0xFF);    // 悬停高亮
@@ -144,7 +148,7 @@ namespace RoomDemo
 
         void ApplyVisibility()
         {
-            if (frame != null) frame.enabled = _visible;
+            if (frame != null) frame.enabled = _visible && showFrameInCloseup;
             if (canvasRenderer != null) canvasRenderer.enabled = _visible;
 
             bool showBar = _visible && Started;

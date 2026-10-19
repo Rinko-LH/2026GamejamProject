@@ -1,7 +1,7 @@
 using RoomDemo.Contracts;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace RoomDemo.UI
 {
@@ -11,7 +11,7 @@ namespace RoomDemo.UI
     /// </summary>
     public class TaskHints : MonoBehaviour, IResettable
     {
-        Text _label;
+        TMP_Text _label;
         readonly List<string> _done = new List<string>();
         bool _subscribed;
 
@@ -20,14 +20,19 @@ namespace RoomDemo.UI
         void Build()
         {
             if (_label != null) return;
-            _label = UIBuild.Text(transform, "Label", 52, TextAnchor.LowerLeft,
-                new Color(0.8f, 0.95f, 1f), new Vector2(0f, 0f), new Vector2(20f, 20f), new Vector2(1400f, 520f));
+            _label = transform.Find("Label")?.GetComponent<TMP_Text>();
+            if (_label == null)
+            {
+                Debug.LogError("[任务提示] 缺少场景 UI 子物体 Label（需要 TextMeshProUGUI）。", this);
+                return;
+            }
             _label.text = "支线进展：\n（暂无）";
         }
 
         void Update()
         {
             Build();
+            if (_label == null) return;
             if (_subscribed) return;
             var p = Services.Progress;
             if (p == null) return;

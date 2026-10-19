@@ -51,6 +51,10 @@ namespace RoomDemo
         bool _revealed;
         bool _progressSubscribed;
 
+        /// <summary>画笔显形后，进入触发范围就提示玩家可拾取；E 键仍由当前目标选择规则决定。</summary>
+        protected override bool ShouldShowOutline =>
+            base.ShouldShowOutline || (!CloseupActive && IsRevealed && canInteract && PlayerInRange);
+
         void Awake()
         {
             // 藏起来：关渲染器 + 关交互（PlayerInRange 依赖 canInteract）。

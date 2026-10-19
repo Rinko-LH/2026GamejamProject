@@ -30,6 +30,9 @@ namespace RoomDemo
         /// <summary>是否还能交互。被拿走的物品要能主动失效。</summary>
         public bool canInteract = true;
 
+        /// <summary>是否应显示交互描边。默认仅高亮当前输入选中的目标。</summary>
+        protected virtual bool ShouldShowOutline => this == CurrentTarget;
+
         /// <summary>
         /// 是否有任意特写（画板/收拾）正在进行中。进行中时所有房间内互动一律不响应，
         /// 避免与特写自己的输入处理抢同一个 E 事件（双重触发）。由各自特写管理器置位。
@@ -175,7 +178,7 @@ namespace RoomDemo
 
             CurrentTarget = CloseupActive ? null : best;
             foreach (var item in interactables)
-                if (item != null) SetOutline(item, item == CurrentTarget);
+                if (item != null) SetOutline(item, item.ShouldShowOutline);
             if (board != null) SetOutline(board, board == CurrentTarget);
         }
 
