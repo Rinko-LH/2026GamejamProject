@@ -327,7 +327,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.01, y: -7.24}
+  m_AnchoredPosition: {x: -1.19, y: 4.31}
   m_SizeDelta: {x: 20, y: 5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &37688818
@@ -350,7 +350,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u9F20\u6807\u5DE6\u952E \u62FE\u8D77/\u653E\u4E0B\uFF1B\u9F20\u6807\u53F3\u952E
+  m_text: "\u73A9\u6CD5\uFF1A\u9F20\u6807\u5DE6\u952E \u62FE\u8D77/\u653E\u4E0B\uFF1B\u9F20\u6807\u53F3\u952E
     \u65CB\u8F6C"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a9eb1f164e3f7c2409de9df029a221ec, type: 2}
@@ -378,8 +378,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 12
-  m_fontSizeBase: 12
+  m_fontSize: 7
+  m_fontSizeBase: 7
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1039,7 +1039,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &241476030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1599,15 +1599,11 @@ MonoBehaviour:
   timer: {fileID: 2054490291}
   board: {fileID: 1663953455}
   dialogue: {fileID: 1497066633}
-  openingSeconds: 3
+  openingSeconds: 0
   openingLines:
   - text: "\u5514\u2026\u2026\u65E9\u4E0A\u4E86\uFF0C\u809A\u5B50\u597D\u997F\u3002"
     autoAdvance: 3
   - text: "\u684C\u4E0A\u5E94\u8BE5\u6709\u5988\u5988\u7559\u7684\u65E9\u9910\uFF0C\u5148\u57AB\u57AB\u809A\u5B50\u3002"
-    autoAdvance: 3
-  - text: "\u5403\u9971\u4E86\u3002\u4ECA\u5929\u8981\u753B\u753B\u6765\u7740\u2026\u2026"
-    autoAdvance: 3
-  - text: "\u5148\u628A\u753B\u7B14\u627E\u51FA\u6765\u5427\u2014\u2014\u6211\u8BB0\u5F97\u843D\u5728\u4E66\u623F\u90A3\u8FB9\u4E86\u3002"
     autoAdvance: 3
   paintingsCompleted: 0
 --- !u!4 &428822117
@@ -2332,13 +2328,14 @@ GameObject:
   m_Component:
   - component: {fileID: 611846137}
   - component: {fileID: 611846139}
+  - component: {fileID: 611846140}
   m_Layer: 0
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &611846137
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2356,8 +2353,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
-  m_AnchoredPosition: {x: 0, y: 127}
-  m_SizeDelta: {x: 1400, y: 100}
+  m_AnchoredPosition: {x: 0, y: 194}
+  m_SizeDelta: {x: 1400, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &611846139
 CanvasRenderer:
@@ -2367,6 +2364,36 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 611846136}
   m_CullTransparentMesh: 1
+--- !u!114 &611846140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 611846136}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.3773585, g: 0.3773585, b: 0.3773585, a: 0.70980394}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: 95e7ff8c695183a429aac1317bd6eb0e, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &612904316
 GameObject:
   m_ObjectHideFlags: 0
@@ -3062,7 +3089,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -856, y: 99}
+  m_AnchoredPosition: {x: -851, y: 124}
   m_SizeDelta: {x: 1900, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &704057776
@@ -3112,8 +3139,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 72
-  m_fontSizeBase: 72
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -3148,7 +3175,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 15.926935, y: 0, z: 258.93616, w: 191.2864}
+  m_margin: {x: 209.8726, y: 30.619198, z: 391.73425, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
