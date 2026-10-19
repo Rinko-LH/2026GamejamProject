@@ -1607,7 +1607,8 @@ MonoBehaviour:
   player: {fileID: 1631403922}
   playerBody: {fileID: 219020095}
   playerShadow: {fileID: 808189756}
-  targetRenderers: []
+  targetRenderers:
+  - {fileID: 539426975}
   occlusionPoint: {fileID: 1011449248}
   matchPlayerSortingLayer: 1
   sortingOrderOffset: 1
@@ -8053,7 +8054,8 @@ MonoBehaviour:
   player: {fileID: 1631403922}
   playerBody: {fileID: 219020095}
   playerShadow: {fileID: 808189756}
-  targetRenderers: []
+  targetRenderers:
+  - {fileID: 756701724}
   occlusionPoint: {fileID: 0}
   matchPlayerSortingLayer: 1
   sortingOrderOffset: 1
@@ -8232,7 +8234,20 @@ MonoBehaviour:
   player: {fileID: 1631403922}
   playerBody: {fileID: 219020095}
   playerShadow: {fileID: 808189756}
-  targetRenderers: []
+  targetRenderers:
+  - {fileID: 1663953459}
+  - {fileID: 1842276422}
+  - {fileID: 711736833}
+  - {fileID: 1680653489}
+  - {fileID: 89634671}
+  - {fileID: 1871983448}
+  - {fileID: 1035184729}
+  - {fileID: 1477866256}
+  - {fileID: 1069006623}
+  - {fileID: 2066412356}
+  - {fileID: 2111262918}
+  - {fileID: 1732315298}
+  - {fileID: 980694051}
   occlusionPoint: {fileID: 0}
   matchPlayerSortingLayer: 1
   sortingOrderOffset: 1
