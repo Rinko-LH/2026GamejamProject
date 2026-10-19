@@ -1032,6 +1032,7 @@ GameObject:
   m_Component:
   - component: {fileID: 241476031}
   - component: {fileID: 241476030}
+  - component: {fileID: 241476032}
   m_Layer: 0
   m_Name: TidyCloseupRoot
   m_TagString: Untagged
@@ -1082,6 +1083,22 @@ Transform:
   - {fileID: 37688817}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &241476032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241476029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92d0d65d7825ada46b7ec4949928107d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  orthographicSize: 7
+  aspectRatio: 1.7777778
+  referenceCamera: {fileID: 0}
+  frameColor: {r: 0, g: 0.9002838, b: 1, a: 1}
 --- !u!1 &247609364
 GameObject:
   m_ObjectHideFlags: 0
@@ -1255,7 +1272,7 @@ Transform:
   m_GameObject: {fileID: 251285181}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 6.0599995, y: 1.8899002, z: 0}
+  m_LocalPosition: {x: 6.0599995, y: 0.029899597, z: 15}
   m_LocalScale: {x: 0.64327973, y: 0.64327973, z: 1.072133}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1758,7 +1775,7 @@ Transform:
   m_GameObject: {fileID: 539426970}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 4.84, y: 0.22999954, z: 0}
+  m_LocalPosition: {x: 4.84, y: -1.6300011, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2236,6 +2253,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 600868998}
+  - component: {fileID: 600868999}
   m_Layer: 0
   m_Name: BedRoom
   m_TagString: Untagged
@@ -2252,7 +2270,7 @@ Transform:
   m_GameObject: {fileID: 600868997}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 12, y: -54, z: 0}
+  m_LocalPosition: {x: 12, y: -52.14, z: -15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2267,6 +2285,22 @@ Transform:
   - {fileID: 1579343768}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &600868999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 600868997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92d0d65d7825ada46b7ec4949928107d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  orthographicSize: 10
+  aspectRatio: 1.7777778
+  referenceCamera: {fileID: 0}
+  frameColor: {r: 0, g: 0.89379835, b: 1, a: 1}
 --- !u!1 &611846136
 GameObject:
   m_ObjectHideFlags: 0
@@ -2388,7 +2422,7 @@ Transform:
   m_GameObject: {fileID: 615214600}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 16.02, y: 2.2613182, z: 0}
+  m_LocalPosition: {x: 16.02, y: 0.4013176, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2718,7 +2752,7 @@ Transform:
   m_GameObject: {fileID: 648353601}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -13, y: 53, z: 0}
+  m_LocalPosition: {x: -13, y: 51.14, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4323,7 +4357,7 @@ Transform:
   m_GameObject: {fileID: 891845963}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.6199999, y: 3.0299988, z: 0}
+  m_LocalPosition: {x: 0.6199999, y: 1.1699982, z: 15}
   m_LocalScale: {x: 3.1112697, y: 3.1112697, z: 3.1112697}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6917,7 +6951,7 @@ Transform:
   m_GameObject: {fileID: 1456685573}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 8.91, y: -6.785141, z: 0}
+  m_LocalPosition: {x: 8.91, y: -8.645142, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -7473,8 +7507,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1579343767}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 8.88, y: -7.95, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 8.880001, y: -9.810001, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7991,7 +8025,7 @@ Transform:
   m_GameObject: {fileID: 1621536473}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.52000046, y: 1.8698997, z: 0}
+  m_LocalPosition: {x: 0.52000046, y: 0.009899139, z: 15}
   m_LocalScale: {x: 1.36, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -9379,7 +9413,7 @@ Transform:
   m_GameObject: {fileID: 1897622084}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.4499998, y: 0.41999817, z: 0}
+  m_LocalPosition: {x: -0.4499998, y: -1.4400024, z: 15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -9822,6 +9856,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2009827937}
+  - component: {fileID: 2009827938}
   m_Layer: 0
   m_Name: LivingRoom
   m_TagString: Untagged
@@ -9848,6 +9883,22 @@ Transform:
   - {fileID: 756495982}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2009827938
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2009827936}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92d0d65d7825ada46b7ec4949928107d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  orthographicSize: 10
+  aspectRatio: 1.7777778
+  referenceCamera: {fileID: 0}
+  frameColor: {r: 0, g: 0.8087063, b: 1, a: 1}
 --- !u!1 &2023871357
 GameObject:
   m_ObjectHideFlags: 0
