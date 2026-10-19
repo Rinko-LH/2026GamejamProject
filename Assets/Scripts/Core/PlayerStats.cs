@@ -206,6 +206,17 @@ namespace RoomDemo
         public float SatietyValue => Satiety != null ? Satiety.Value : 0f;
         public float SpiritValue => Spirit != null ? Spirit.Value : 0f;
 
+        public bool IsStatLow(StatKind kind)
+        {
+            EnsureChannels();
+            switch (kind)
+            {
+                case StatKind.Water: return Water.IsLow;
+                case StatKind.Satiety: return Satiety.IsLow;
+                default: return Spirit.IsLow;
+            }
+        }
+
         /// <summary>任一低于 20%（低落机制触发线）。</summary>
         public bool IsLowMood =>
             (Water != null && Water.IsLow) ||

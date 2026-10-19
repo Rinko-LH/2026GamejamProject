@@ -22,6 +22,9 @@ namespace RoomDemo.Contracts
         /// <summary>任一低于 20%（低落机制触发线）。</summary>
         bool IsLowMood { get; }
 
+        /// <summary>按该状态自身的阈值判断是否过低，供 UI 单独显示警告。</summary>
+        bool IsStatLow(StatKind kind);
+
         /// <summary>三项全部低于 10%（低落结局线）。</summary>
         bool AllCritical { get; }
 
