@@ -13,6 +13,16 @@ namespace RoomDemo.Quest
         public Transform itemsRoot;
         [Tooltip("藏在杂物下方的画笔。露出后可左键拾取，播放原有对话；拾取后仍可继续整理或按 ESC 退出。")]
         public BrushPickup brushPickup;
+
+        [Header("放置设置")]
+        [InspectorName("启用吸附")]
+        [Tooltip("统一控制本特写中所有杂物的吸附。开启时需要靠近指定落点并自动吸附；关闭时还需满足非吸附放置半径，保留放下时的位置。")]
+        public bool enableSnapping = true;
+
+        [InspectorName("非吸附放置半径")]
+        [Tooltip("关闭吸附时，杂物自身世界坐标到共享落点的二维距离必须在此半径内，同时仍需满足目标区域和旋转要求。统一作用于所有杂物，单位为世界单位。")]
+        [Min(0f)] public float nonSnappingPlacementRadius = 2f;
+
         readonly Dictionary<TidySpot, TidyItem.State[]> _progress = new Dictionary<TidySpot, TidyItem.State[]>();
         TidyItem[] _items;
         TidyItem _hovered, _held;
@@ -99,7 +109,7 @@ namespace RoomDemo.Quest
                 MoveHeld();
                 _held.StepRotation(Time.deltaTime);
                 Physics2D.SyncTransforms();
-                _held.SetHeldFeedback(_held.CanPlace());
+                _held.SetHeldFeedback(_held.CanPlace(enableSnapping, nonSnappingPlacementRadius));
             }
             else
             {
@@ -166,13 +176,22 @@ namespace RoomDemo.Quest
             }
             MoveHeld();
             Physics2D.SyncTransforms();
-            if (!_held.CanPlace()) return;
-            _held.Place();
-            _held = null;
+            if (!_held.CanPlace(enableSnapping, nonSnappingPlacementRadius)) return;
+            PlaceHeldItem();
             foreach (var item in _items) if (!item.IsPlaced) return;
             _completed = true;
             SaveProgress();
             _activeSpot.ExecuteTidy(true);
+        }
+
+        void PlaceHeldItem()
+        {
+            int highestOrder = int.MinValue;
+            foreach (var item in _items)
+                highestOrder = Mathf.Max(highestOrder, item.HighestSortingOrder);
+            // 留一层给描边；拿起时的临时提升不参与堆叠层级计算。
+            _held.Place(enableSnapping, highestOrder + 2);
+            _held = null;
         }
 
         bool CanPickBrush()

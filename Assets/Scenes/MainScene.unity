@@ -1039,7 +1039,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &241476030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1060,6 +1060,8 @@ MonoBehaviour:
   closeupCameraOffset: {x: 0, y: 0, z: -10}
   itemsRoot: {fileID: 241476031}
   brushPickup: {fileID: 917343568}
+  enableSnapping: 0
+  nonSnappingPlacementRadius: 0.3
 --- !u!4 &241476031
 Transform:
   m_ObjectHideFlags: 0

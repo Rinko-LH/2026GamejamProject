@@ -9,7 +9,7 @@ namespace RoomDemo.Quest
         public Collider2D hitCollider;
         [Tooltip("放置锚点进入此区域且旋转归零后，左键才可放下。")]
         public Collider2D targetArea;
-        [Tooltip("可选的共享精确落点。设置后所有杂物可吸附到同一个 Transform。")]
+        [Tooltip("共享放置落点。启用吸附时用于精确吸附；关闭吸附时用于判断杂物自身位置是否在统一放置半径内。")]
         public Transform placementPoint;
         [Min(0f)] public float placementPointTolerance = 0.75f;
         [Tooltip("拿起时点亮对应目标位置的提示图，可留空。")]
@@ -25,6 +25,7 @@ namespace RoomDemo.Quest
             public Vector3 position;
             public Quaternion rotation;
             public bool placed;
+            public int sortingOffset;
         }
 
         State _initial;
@@ -33,7 +34,23 @@ namespace RoomDemo.Quest
         InteractionOutline _outline;
         SpriteRenderer[] _sprites, _fills;
         int[] _orders;
+        int _sortingOffset;
         static Material _fillMaterial;
+
+        public int HighestSortingOrder
+        {
+            get
+            {
+                Initialize();
+                int highest = 0;
+                if (_orders.Length > 0)
+                {
+                    highest = _orders[0];
+                    foreach (int order in _orders) highest = Mathf.Max(highest, order);
+                }
+                return highest + _sortingOffset;
+            }
+        }
 
         void Reset()
         {
@@ -119,7 +136,7 @@ namespace RoomDemo.Quest
                 targetHint.color = held ? new Color(1f, 0.85f, 0.25f, 0.55f) : _targetColor;
             for (int i = 0; i < _sprites.Length; i++)
             {
-                _sprites[i].sortingOrder = _orders[i] + (held ? 1000 : 0);
+                _sprites[i].sortingOrder = _orders[i] + _sortingOffset + (held ? 1000 : 0);
                 _fills[i].sortingOrder = _sprites[i].sortingOrder + 1;
                 _fills[i].enabled = held && _sprites[i].enabled;
             }
@@ -141,20 +158,29 @@ namespace RoomDemo.Quest
                 Mathf.Max(1f, rotationSpeed) * deltaTime);
         }
 
-        public bool CanPlace()
+        public bool CanPlace(bool useSnapping = true, float nonSnappingRadius = 2f)
         {
             if (targetArea == null || !targetArea.enabled || !targetArea.gameObject.activeInHierarchy) return false;
             var point = placementAnchor != null ? placementAnchor.position : transform.position;
             bool insideTarget = targetArea.OverlapPoint(point);
-            bool nearSharedPoint = placementPoint == null
-                || Vector2.Distance(point, placementPoint.position) <= placementPointTolerance;
+            bool nearSharedPoint = useSnapping
+                ? placementPoint == null || Vector2.Distance(point, placementPoint.position) <= placementPointTolerance
+                : placementPoint != null && Vector2.Distance(transform.position, placementPoint.position)
+                    <= Mathf.Max(0f, nonSnappingRadius);
             return insideTarget && nearSharedPoint
                 && Quaternion.Angle(transform.localRotation, Quaternion.identity) <= rotationTolerance;
         }
 
-        public void Place()
+        public void Place(bool useSnapping = true, int? bottomSortingOrder = null)
         {
-            if (placementPoint != null)
+            if (bottomSortingOrder.HasValue && _orders.Length > 0)
+            {
+                int lowest = _orders[0];
+                foreach (int order in _orders) lowest = Mathf.Min(lowest, order);
+                // 整体抬高，保留物品自身多个精灵之间的相对层级。
+                _sortingOffset = bottomSortingOrder.Value - lowest;
+            }
+            if (useSnapping && placementPoint != null)
             {
                 var anchorPosition = placementAnchor != null ? placementAnchor.position : transform.position;
                 transform.position += placementPoint.position - anchorPosition;
@@ -166,12 +192,14 @@ namespace RoomDemo.Quest
 
         public State Capture() => new State
         {
-            position = transform.localPosition, rotation = transform.localRotation, placed = IsPlaced
+            position = transform.localPosition, rotation = transform.localRotation, placed = IsPlaced,
+            sortingOffset = _sortingOffset
         };
 
         public void Restore(State state)
         {
             Initialize();
+            _sortingOffset = state.sortingOffset;
             SetHeld(false);
             transform.localPosition = state.position;
             transform.localRotation = state.rotation;
