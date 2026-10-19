@@ -6946,7 +6946,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 82e52e784a4e7264a976973154cff4af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shadowDirection: {x: 1, y: -1}
+  dayTimer: {fileID: 2054490291}
+  shadowDirection: {x: 1.5, y: -1}
   shadowLength: 0.5
   heightCompression: 0.18
   shadowColor: {r: 0.18, g: 0.15, b: 0.2, a: 0.2}
