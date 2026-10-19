@@ -18,10 +18,15 @@ namespace RoomDemo
             _sources = GetComponentsInChildren<SpriteRenderer>(true);
             _outlineRenderers = new SpriteRenderer[_sources.Length];
 
-            var shader = Shader.Find("RoomDemo/Sprite Selection Outline");
+            // Shader.Find 只按名称查找，若项目里没有材质或场景直接引用它，
+            // Unity 构建时可能会把 Shader 剔除。放在 Resources 中并显式加载，
+            // 确保打包版本也会包含描边 Shader。
+            var shader = Resources.Load<Shader>("SpriteSelectionOutline");
+            if (shader == null)
+                shader = Shader.Find("RoomDemo/Sprite Selection Outline");
             if (shader == null)
             {
-                Debug.LogError("Selection outline shader not found: RoomDemo/Sprite Selection Outline", this);
+                Debug.LogError("Selection outline shader not found. Expected Resources/SpriteSelectionOutline.shader or RoomDemo/Sprite Selection Outline.", this);
                 enabled = false;
                 return;
             }
