@@ -17,7 +17,7 @@ namespace RoomDemo.UI
         /// 缓存为静态，所有文本共用一个 Font 实例。
         /// </summary>
         static Font _defaultFont;
-        static Font GetDefaultFont()
+        public static Font GetDefaultFont(int fontSize = 26)
         {
             if (_defaultFont != null) return _defaultFont;
             string[] names = { "Arial", "Segoe UI", "Microsoft YaHei", "Liberation Sans" };
@@ -25,7 +25,7 @@ namespace RoomDemo.UI
             {
                 try
                 {
-                    var f = Font.CreateDynamicFontFromOSFont(n, 26);
+                    var f = Font.CreateDynamicFontFromOSFont(n, fontSize);
                     if (f != null) { _defaultFont = f; break; }
                 }
                 catch (System.Exception) { /* 该字体名不可用，试下一个 */ }

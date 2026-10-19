@@ -23,7 +23,7 @@ namespace RoomDemo.UI
                 if (tmp == null) continue;
                 var label = tmp.GetComponent<Text>();
                 if (label == null) label = tmp.gameObject.AddComponent<Text>();
-                label.font = menuFont != null ? menuFont : GetMenuFont();
+                label.font = menuFont != null ? menuFont : UIBuild.GetDefaultFont(32);
                 label.text = tmp.text;
                 label.fontSize = Mathf.Max(1, Mathf.RoundToInt(tmp.fontSize));
                 label.color = tmp.color;
@@ -34,21 +34,6 @@ namespace RoomDemo.UI
                 tmp.enabled = false;
             }
             if (creditsPanel != null) creditsPanel.SetActive(false);
-        }
-
-        static Font GetMenuFont()
-        {
-            string[] names = { "Arial", "Segoe UI", "Microsoft YaHei", "Liberation Sans" };
-            foreach (var name in names)
-            {
-                try
-                {
-                    var fallback = Font.CreateDynamicFontFromOSFont(name, 32);
-                    if (fallback != null) return fallback;
-                }
-                catch (System.Exception) { /* Try the next installed system font. */ }
-            }
-            return null;
         }
 
         public void StartGame()
