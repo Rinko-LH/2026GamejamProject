@@ -4,18 +4,7 @@ using UnityEngine;
 namespace RoomDemo
 {
     /// <summary>
-    /// 画笔（策划案 4.1 / S6）。
-    ///
-    /// 玩法链路：开场画笔是<b>藏起来的</b>（不在场景里可见）→ 玩家整理书架
-    /// （TidyShelf 完成）→ 画笔出现在书架上 → 走近按 E 拾取 → 画板可进。
-    ///
-    /// 策划案原文：「整理书架 · 精神 +20%，<b>发现画笔</b> · 主线关键道具在此」——
-    /// 注意 20% 概率属于另一条支线「偶然发现」（矿泉水 / 零食），
-    /// <b>画笔是必出的</b>，否则主线（画画）会被随机数卡死。
-    ///
-    /// 发现时机走进度总线（R1）：本类订阅 Services.Progress.QuestCompleted，
-    /// 收到 <see cref="revealOnQuestId"/> 完成事件才显形。这样 TidySpot 不需要
-    /// 反向持有画笔引用，收拾与找笔两条支线保持解耦。
+    /// 画笔拾取与画板解锁。支持特写中鼠标点击，以及旧场景的任务显形、按 E 拾取。
     /// </summary>
     public class BrushPickup : RoomInteractable, IResettable
     {
@@ -25,8 +14,11 @@ namespace RoomDemo
         [Tooltip("画笔的可见渲染器。被发现时点亮、被拾取时熄灭")]
         public SpriteRenderer[] visuals;
 
+        [Tooltip("仅由整理特写处理鼠标点击，不响应房间内的 E 键，也不等待书架任务显形。将画笔放在杂物下方即可形成遮挡。")]
+        public bool closeupClickOnly;
+
         [Header("显形")]
-        [Tooltip("开局是否藏着。true = 必须先完成 revealOnQuestId 才出现")]
+        [Tooltip("旧版房间交互：勾选后必须先完成指定任务才显形。仅特写点击模式下忽略此设置，由杂物遮挡画笔。")]
         public bool startHidden = true;
 
         [Tooltip("完成这条支线时画笔出现（策划案：整理书架）")]
@@ -50,18 +42,36 @@ namespace RoomDemo
 
         bool _revealed;
         bool _progressSubscribed;
+        bool _pointerHovered;
+        InteractionOutline _pointerOutline;
 
-        /// <summary>画笔显形后，进入触发范围就提示玩家可拾取；E 键仍由当前目标选择规则决定。</summary>
+        /// <summary>旧版房间交互中，画笔显形后进入触发范围就提示玩家可拾取。</summary>
         protected override bool ShouldShowOutline =>
-            base.ShouldShowOutline || (!CloseupActive && IsRevealed && canInteract && PlayerInRange);
+            (closeupClickOnly && _pointerHovered && !HasBeenTaken && IsRevealed && canInteract)
+            || (!closeupClickOnly && (base.ShouldShowOutline || (!CloseupActive && IsRevealed && canInteract && PlayerInRange)));
+
+        public void SetHovered(bool hovered)
+        {
+            _pointerHovered = hovered && closeupClickOnly && !HasBeenTaken && IsRevealed && canInteract;
+            if (_pointerOutline == null) _pointerOutline = GetComponent<InteractionOutline>();
+            if (_pointerHovered && _pointerOutline == null)
+                _pointerOutline = gameObject.AddComponent<InteractionOutline>();
+            if (_pointerOutline == null) return;
+            _pointerOutline.Initialize();
+            _pointerOutline.SetOutlined(_pointerHovered);
+        }
+
+        void OnDisable() => SetHovered(false);
 
         void Awake()
         {
             // 藏起来：关渲染器 + 关交互（PlayerInRange 依赖 canInteract）。
             // 只关 renderer.enabled，不 SetActive——SetActive(false) 会让本物体
             // 的 Update / 事件订阅一起停掉，进度事件就收不到了。
-            if (startHidden) Hide();
-            else _revealed = true;
+            if (visuals == null || visuals.Length == 0)
+                visuals = GetComponentsInChildren<SpriteRenderer>(true);
+            if (interactionZone == null) interactionZone = GetComponent<Collider2D>();
+            ResetPickup();
         }
 
         /// <summary>
@@ -72,6 +82,7 @@ namespace RoomDemo
         /// </summary>
         protected override void Update()
         {
+            if (closeupClickOnly) return;
             base.Update();
             EnsureProgressSubscribed();
         }
@@ -96,7 +107,7 @@ namespace RoomDemo
 
         void OnQuestCompleted(QuestCompletedEvent e)
         {
-            if (e.Id != revealOnQuestId) return;
+            if (closeupClickOnly || e.Id != revealOnQuestId) return;
             Reveal();
         }
 
@@ -117,6 +128,7 @@ namespace RoomDemo
 
             HasBeenTaken = true;
             canInteract = false;
+            SetHovered(false);
             SetVisuals(false);
 
             if (board != null) board.GiveBrush();
@@ -129,6 +141,27 @@ namespace RoomDemo
 
             Debug.Log($"[画笔] {foundLine}");
             PickedUp?.Invoke();
+        }
+
+        /// <summary>特写控制器负责遮挡判定，本方法只判断画笔自身是否可被点击。</summary>
+        public bool ContainsPointer(Vector2 point)
+        {
+            if (!closeupClickOnly || !isActiveAndEnabled || HasBeenTaken || !_revealed || !canInteract)
+                return false;
+            return VisibleSprite != null && interactionZone != null && interactionZone.isActiveAndEnabled
+                && interactionZone.OverlapPoint(point);
+        }
+
+        public SpriteRenderer VisibleSprite
+        {
+            get
+            {
+                if (visuals != null)
+                    foreach (var sprite in visuals)
+                        if (sprite != null && sprite.enabled && sprite.gameObject.activeInHierarchy
+                            && sprite.sprite != null) return sprite;
+                return null;
+            }
         }
 
         void Hide()
@@ -148,8 +181,9 @@ namespace RoomDemo
         /// <summary>重置，供测试反复跑。</summary>
         public void ResetPickup()
         {
+            SetHovered(false);
             HasBeenTaken = false;
-            if (startHidden) Hide();
+            if (startHidden && !closeupClickOnly) Hide();
             else { _revealed = true; canInteract = true; SetVisuals(true); }
         }
 

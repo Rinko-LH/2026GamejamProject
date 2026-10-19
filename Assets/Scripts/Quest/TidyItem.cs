@@ -93,6 +93,21 @@ namespace RoomDemo.Quest
             return layerA != layerB ? layerA > layerB : a.sortingOrder >= b.sortingOrder;
         }
 
+        public bool DrawsAbove(SpriteRenderer other)
+        {
+            if (other == null) return false;
+            Initialize();
+            int otherLayer = SortingLayer.GetLayerValueFromID(other.sortingLayerID);
+            foreach (var sprite in _sprites)
+            {
+                if (sprite == null || !sprite.enabled || !sprite.gameObject.activeInHierarchy || sprite.sprite == null) continue;
+                int layer = SortingLayer.GetLayerValueFromID(sprite.sortingLayerID);
+                if (layer > otherLayer || (layer == otherLayer && sprite.sortingOrder >= other.sortingOrder))
+                    return true;
+            }
+            return false;
+        }
+
         public void SetHovered(bool value) { if (_outline != null) _outline.SetOutlined(value && !IsPlaced); }
 
         public void SetHeld(bool held)

@@ -11,6 +11,8 @@ namespace RoomDemo.Quest
     {
         [Tooltip("收集此容器下的 TidyItem；留空使用 Closeup Root。")]
         public Transform itemsRoot;
+        [Tooltip("藏在杂物下方的画笔。露出后可左键拾取，播放原有对话；拾取后仍可继续整理或按 ESC 退出。")]
+        public BrushPickup brushPickup;
         readonly Dictionary<TidySpot, TidyItem.State[]> _progress = new Dictionary<TidySpot, TidyItem.State[]>();
         TidyItem[] _items;
         TidyItem _hovered, _held;
@@ -46,6 +48,7 @@ namespace RoomDemo.Quest
         {
             if (_items != null) return;
             var root = itemsRoot != null ? itemsRoot : (closeupRoot != null ? closeupRoot : transform);
+            if (brushPickup == null) brushPickup = root.GetComponentInChildren<BrushPickup>(true);
             _items = root.GetComponentsInChildren<TidyItem>(true);
             foreach (var item in _items) item.Initialize();
         }
@@ -69,9 +72,10 @@ namespace RoomDemo.Quest
             _input.SecondaryPointerPressed += OnSecondary;
         }
 
-        bool CanPlay => InCloseup && !_completed && _activeSpot != null && _activeSpot.canInteract
+        bool CanUsePointer => InCloseup && _activeSpot != null
             && _input != null && !_input.IsBlocked
             && (Services.Flow == null || Services.Flow.State == GameFlowState.Exploring);
+        bool CanPlay => CanUsePointer && !_completed && _activeSpot.canInteract;
         bool PointerOverUI => EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
         protected override void OnCloseupUpdate()
@@ -82,15 +86,28 @@ namespace RoomDemo.Quest
                 return;
             }
             SubscribePointer();
-            if (!CanPlay) { SetHovered(null); return; }
+            if (!CanUsePointer)
+            {
+                SetHovered(null);
+                if (brushPickup != null) brushPickup.SetHovered(false);
+                return;
+            }
             if (_held != null)
             {
+                if (brushPickup != null) brushPickup.SetHovered(false);
+                if (!CanPlay) return;
                 MoveHeld();
                 _held.StepRotation(Time.deltaTime);
                 Physics2D.SyncTransforms();
                 _held.SetHeldFeedback(_held.CanPlace());
             }
-            else SetHovered(PointerOverUI ? null : PickItem());
+            else
+            {
+                bool overUI = PointerOverUI;
+                bool overBrush = !overUI && CanPickBrush();
+                if (brushPickup != null) brushPickup.SetHovered(overBrush);
+                SetHovered(!overUI && !overBrush && CanPlay ? PickItem() : null);
+            }
         }
 
         bool PointerWorld(float z, out Vector3 position)
@@ -131,12 +148,15 @@ namespace RoomDemo.Quest
 
         void OnPrimary()
         {
-            if (!CanPlay || PointerOverUI) return;
+            if (!CanUsePointer || PointerOverUI) return;
+            if (_held == null && TryPickBrush()) return;
+            if (!CanPlay) return;
             if (_held == null)
             {
                 var picked = PickItem();
                 if (picked == null || !PointerWorld(picked.transform.position.z, out var point)) return;
                 SetHovered(null);
+                if (brushPickup != null) brushPickup.SetHovered(false);
                 _held = picked;
                 _pickupPosition = picked.transform.localPosition;
                 _pickupRotation = picked.transform.localRotation;
@@ -155,6 +175,27 @@ namespace RoomDemo.Quest
             _activeSpot.ExecuteTidy(true);
         }
 
+        bool CanPickBrush()
+        {
+            if (brushPickup == null || !PointerWorld(brushPickup.transform.position.z, out var point))
+                return false;
+            Physics2D.SyncTransforms();
+            if (!brushPickup.ContainsPointer(point)) return false;
+            // 已归位的杂物仍会遮挡画笔，不能隔着杂物点穿拾取。
+            foreach (var item in _items)
+                if (item.gameObject.activeInHierarchy && item.Contains(point)
+                    && item.DrawsAbove(brushPickup.VisibleSprite)) return false;
+            return true;
+        }
+
+        bool TryPickBrush()
+        {
+            if (!CanPickBrush()) return false;
+            SetHovered(null);
+            brushPickup.Interact();
+            return true;
+        }
+
         void OnSecondary()
         {
             if (CanPlay && !PointerOverUI && _held != null) _held.BeginStraighten();
@@ -171,6 +212,7 @@ namespace RoomDemo.Quest
         void ReleasePointer()
         {
             SetHovered(null);
+            if (brushPickup != null) brushPickup.SetHovered(false);
             if (_held != null)
             {
                 _held.SetHeld(false);
