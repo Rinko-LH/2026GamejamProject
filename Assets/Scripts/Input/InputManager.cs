@@ -64,6 +64,10 @@ namespace RoomDemo.Input
         /// <summary>取消键（Esc/右键）：退出画板特写。</summary>
         public event Action CancelPressed;
 
+        public event Action CancelKeyPressed;
+        public event Action PrimaryPointerPressed;
+        public event Action SecondaryPointerPressed;
+
         /// <summary>调试：显示/隐藏 HUD（F1）。</summary>
         public event Action DebugToggleHud;
 
@@ -125,10 +129,14 @@ namespace RoomDemo.Input
             if (!blocked || dialogueActive)
             {
                 if (UnityEngine.Input.GetKeyDown(confirmKey) || UnityEngine.Input.GetKeyDown(confirmKeyAlt)) Confirm?.Invoke();
+                if (UnityEngine.Input.GetKeyDown(cancelKey)) CancelKeyPressed?.Invoke();
                 if (UnityEngine.Input.GetKeyDown(cancelKey) || UnityEngine.Input.GetMouseButtonDown(cancelMouseButton)) CancelPressed?.Invoke();
             }
 
             if (blocked) return; // 封锁期间不派发其余按下沿（Interact / 调试键）
+
+            if (UnityEngine.Input.GetMouseButtonDown(0)) PrimaryPointerPressed?.Invoke();
+            if (UnityEngine.Input.GetMouseButtonDown(1)) SecondaryPointerPressed?.Invoke();
 
             if (UnityEngine.Input.GetKeyDown(interactKey)) Interact?.Invoke();
 

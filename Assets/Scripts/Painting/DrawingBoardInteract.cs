@@ -252,7 +252,6 @@ namespace RoomDemo
                 {
                     var line = new DialogueLine
                     {
-                        speaker = "",
                         text = "奇怪，画笔怎么不见了，应该是落在房间某处了吧",
                         autoAdvance = 3f
                     };

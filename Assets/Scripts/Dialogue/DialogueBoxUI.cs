@@ -6,15 +6,14 @@ namespace RoomDemo
 {
     /// <summary>
     /// 对话框（S1，策划案 1.6，取代原 IMGUI 占位）：订阅 Services.Dialogue.LineChanged，
-    /// 屏幕底部居中画半透明黑底框：说话人名（独白时不显示）+ 台词 + 推进提示。
+    /// 屏幕底部居中显示台词正文和推进提示。
     ///
     /// 无打字机效果（E4：整行直接显示）。
-    /// Box / Speaker / Body 在场景层级中制作；脚本只更新文本和控制对白框显隐。
+    /// Box / Body 在场景层级中制作；脚本只更新文本和控制对白框显隐。
     /// </summary>
     public class DialogueBoxUI : MonoBehaviour
     {
         GameObject _box;
-        TMP_Text _speaker;
         TMP_Text _body;
         bool _subscribed;
 
@@ -38,10 +37,9 @@ namespace RoomDemo
                 Debug.LogError("[对白框] 缺少场景 UI 子物体 Box。", this);
                 return;
             }
-            _speaker = box.Find("Speaker")?.GetComponent<TMP_Text>();
             _body = box.Find("Body")?.GetComponent<TMP_Text>();
-            if (_speaker == null || _body == null)
-                Debug.LogError("[对白框] Box 下需要 Speaker 和 Body 两个 TextMeshProUGUI 子物体。", this);
+            if (_body == null)
+                Debug.LogError("[对白框] Box 下需要 Body 文本组件（TextMeshProUGUI）。", this);
 
             _box.SetActive(false);
         }
@@ -78,10 +76,9 @@ namespace RoomDemo
                 if (_box != null) _box.SetActive(false);
                 return;
             }
-            if (_speaker == null || _body == null) return;
+            if (_body == null) return;
             if (_box != null) _box.SetActive(true);
-            if (_speaker != null) _speaker.text = line.speaker;
-            if (_body != null) _body.text = line.text + "\n（空格/回车 推进 · Esc 跳过）";
+            _body.text = line.text + "\n（空格/回车 推进 · Esc 跳过）";
         }
     }
 }

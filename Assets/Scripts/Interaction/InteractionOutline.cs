@@ -13,8 +13,11 @@ namespace RoomDemo
         SpriteRenderer[] _outlineRenderers;
         bool _outlined;
 
-        void Awake()
+        void Awake() => Initialize();
+
+        public void Initialize()
         {
+            if (_sources != null) return;
             _sources = GetComponentsInChildren<SpriteRenderer>(true);
             _outlineRenderers = new SpriteRenderer[_sources.Length];
 

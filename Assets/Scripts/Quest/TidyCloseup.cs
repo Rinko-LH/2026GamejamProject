@@ -1,103 +1,226 @@
+using System.Collections.Generic;
 using RoomDemo.Contracts;
+using RoomDemo.Input;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace RoomDemo.Quest
 {
-    /// <summary>
-    /// 收拾特写（方向 A）：把"收拾"从客厅里抽出来，做成独立特写视图。
-    ///
-    /// 进入：隐藏 RoomWorld（客厅整体消失，只剩深蓝相机底 + 大棕块背景）、相机聚焦。
-    /// 退出（Esc）：恢复客厅与相机。
-    /// 两段式语义保留：进入即点亮高亮（对应原第一段），特写里再按 E 执行收拾
-    /// （隐藏收拾物、+20 精神、上报、播台词）。
-    ///
-    /// 公共部分（隐藏客厅 / 相机 / 输入订阅 / 总闸门 / Esc / IResettable）
-    /// 全部在基类 <see cref="CloseupBase"/>，这里只留收拾自己的逻辑。
-    /// </summary>
-    public class TidyCloseup : RoomDemo.CloseupBase
+    /// <summary>鼠标整理特写：逐件归位，全部完成后结算。</summary>
+    public class TidyCloseup : CloseupBase
     {
-        [Header("收拾物与高亮")]
-        [Tooltip("特写里的收拾物容器（执行时隐藏）。杂物只在特写里出现，客厅里不摆")]
+        [Tooltip("收集此容器下的 TidyItem；留空使用 Closeup Root。")]
         public Transform itemsRoot;
-        public GameObject highlight;
-
+        readonly Dictionary<TidySpot, TidyItem.State[]> _progress = new Dictionary<TidySpot, TidyItem.State[]>();
+        TidyItem[] _items;
+        TidyItem _hovered, _held;
         TidySpot _activeSpot;
-        bool _armed;
-
+        InputManager _input;
+        Vector3 _grabOffset, _pickupPosition;
+        Quaternion _pickupRotation;
+        bool _completed;
         public bool IsInTidyCloseup => InCloseup;
+        protected override bool UseMouseCancel => false;
 
-        /// <summary>进入收拾特写（由 TidySpot.Interact 第一段调用）。</summary>
         public void Enter(TidySpot spot)
         {
+            if (InCloseup || spot == null || !spot.canInteract) return;
+            EnsureItems();
+            if (_items.Length == 0)
+            {
+                Debug.LogWarning("[收拾] 请在杂物上添加 TidyItem 并绑定 Target Area。", this);
+                return;
+            }
             _activeSpot = spot;
-            _armed = true; // 进特写即点亮高亮（对应原两段式第一段）
+            _completed = false;
+            _progress.TryGetValue(spot, out var states);
+            for (int i = 0; i < _items.Length; i++)
+            {
+                if (states != null && states.Length == _items.Length) _items[i].Restore(states[i]);
+                else _items[i].ResetItem();
+            }
             EnterCloseup();
         }
 
-        protected override void OnEntered()
+        void EnsureItems()
         {
-            _armed = true;
-            if (highlight != null) highlight.SetActive(true);
-            if (itemsRoot != null)
-                foreach (Transform c in itemsRoot)
-                    if (c != null) c.gameObject.SetActive(true);
+            if (_items != null) return;
+            var root = itemsRoot != null ? itemsRoot : (closeupRoot != null ? closeupRoot : transform);
+            _items = root.GetComponentsInChildren<TidyItem>(true);
+            foreach (var item in _items) item.Initialize();
         }
 
-        protected override void HandleInteract()
+        protected override void FrameCamera()
         {
-            // 已收拾则忽略（防止执行后误触再点亮 / 重复结算）
-            if (_activeSpot != null && !_activeSpot.canInteract) return;
+            base.FrameCamera();
+            if (mainCamera == null || closeupRoot == null) return;
+            var position = mainCamera.transform.position;
+            position.z = closeupRoot.position.z + closeupCameraOffset.z;
+            mainCamera.transform.position = position;
+        }
 
-            if (!_armed)
+        protected override void OnEntered() => SubscribePointer();
+
+        void SubscribePointer()
+        {
+            if (_input != null || InputManager.Instance == null) return;
+            _input = InputManager.Instance;
+            _input.PrimaryPointerPressed += OnPrimary;
+            _input.SecondaryPointerPressed += OnSecondary;
+        }
+
+        bool CanPlay => InCloseup && !_completed && _activeSpot != null && _activeSpot.canInteract
+            && _input != null && !_input.IsBlocked
+            && (Services.Flow == null || Services.Flow.State == GameFlowState.Exploring);
+        bool PointerOverUI => EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+
+        protected override void OnCloseupUpdate()
+        {
+            if (Services.Flow != null && Services.Flow.State != GameFlowState.Exploring)
             {
-                _armed = true;
-                if (highlight != null) highlight.SetActive(true);
+                ExitCloseup();
                 return;
             }
-            Execute();
+            SubscribePointer();
+            if (!CanPlay) { SetHovered(null); return; }
+            if (_held != null)
+            {
+                MoveHeld();
+                _held.StepRotation(Time.deltaTime);
+                Physics2D.SyncTransforms();
+                _held.SetHeldFeedback(_held.CanPlace());
+            }
+            else SetHovered(PointerOverUI ? null : PickItem());
         }
 
-        void Execute()
+        bool PointerWorld(float z, out Vector3 position)
         {
-            if (_activeSpot != null) _activeSpot.ExecuteTidy();
-            if (itemsRoot != null)
-                foreach (Transform c in itemsRoot)
-                    if (c != null) c.gameObject.SetActive(false);
-            if (highlight != null) highlight.SetActive(false);
-            _armed = false;
-            // 执行后停在特写，Esc 退出；已收拾，再按 E 无效
+            position = default;
+            if (mainCamera == null || _input == null) return false;
+            var ray = mainCamera.ScreenPointToRay(_input.PointerScreenPos);
+            var plane = new Plane(Vector3.forward, new Vector3(0f, 0f, z));
+            if (!plane.Raycast(ray, out float distance)) return false;
+            position = ray.GetPoint(distance);
+            return true;
+        }
+
+        TidyItem PickItem()
+        {
+            Physics2D.SyncTransforms();
+            TidyItem picked = null;
+            foreach (var item in _items)
+                if (!item.IsPlaced && item.gameObject.activeInHierarchy
+                    && PointerWorld(item.transform.position.z, out var point) && item.Contains(point)
+                    && (picked == null || item.DrawsAbove(picked))) picked = item;
+            return picked;
+        }
+
+        void SetHovered(TidyItem next)
+        {
+            if (_hovered == next) return;
+            if (_hovered != null) _hovered.SetHovered(false);
+            _hovered = next;
+            if (_hovered != null) _hovered.SetHovered(true);
+        }
+
+        void MoveHeld()
+        {
+            if (_held != null && PointerWorld(_held.transform.position.z, out var point))
+                _held.transform.position = point + _grabOffset;
+        }
+
+        void OnPrimary()
+        {
+            if (!CanPlay || PointerOverUI) return;
+            if (_held == null)
+            {
+                var picked = PickItem();
+                if (picked == null || !PointerWorld(picked.transform.position.z, out var point)) return;
+                SetHovered(null);
+                _held = picked;
+                _pickupPosition = picked.transform.localPosition;
+                _pickupRotation = picked.transform.localRotation;
+                _grabOffset = picked.transform.position - point;
+                picked.SetHeld(true);
+                return;
+            }
+            MoveHeld();
+            Physics2D.SyncTransforms();
+            if (!_held.CanPlace()) return;
+            _held.Place();
+            _held = null;
+            foreach (var item in _items) if (!item.IsPlaced) return;
+            _completed = true;
+            SaveProgress();
+            _activeSpot.ExecuteTidy(true);
+        }
+
+        void OnSecondary()
+        {
+            if (CanPlay && !PointerOverUI && _held != null) _held.BeginStraighten();
+        }
+
+        void SaveProgress()
+        {
+            if (_activeSpot == null || _items == null) return;
+            var states = new TidyItem.State[_items.Length];
+            for (int i = 0; i < _items.Length; i++) states[i] = _items[i].Capture();
+            _progress[_activeSpot] = states;
+        }
+
+        void ReleasePointer()
+        {
+            SetHovered(null);
+            if (_held != null)
+            {
+                _held.SetHeld(false);
+                _held.transform.localPosition = _pickupPosition;
+                _held.transform.localRotation = _pickupRotation;
+                _held = null;
+            }
+            if (_input != null)
+            {
+                _input.PrimaryPointerPressed -= OnPrimary;
+                _input.SecondaryPointerPressed -= OnSecondary;
+                _input = null;
+            }
         }
 
         protected override void OnExited()
         {
-            // 中途 Esc 退出（还没执行）：复位进入态，回到房间仍可再进
-            if (_activeSpot != null && _activeSpot.canInteract)
-                _activeSpot.CancelArm();
+            ReleasePointer();
+            SaveProgress();
+            if (_activeSpot != null) _activeSpot.CancelArm();
             _activeSpot = null;
-            _armed = false;
         }
 
-        /// <summary>
-        /// 被猫弄乱（TidySpot.MessUp 通知）：若玩家正停在特写里，
-        /// 把收拾物重新显出来，避免"对着空桌面收拾"的视觉断裂。
-        /// </summary>
-        public void NotifyMessUp()
+        public void NotifyMessUp(TidySpot spot)
         {
-            if (!InCloseup) return;
-            if (itemsRoot != null)
-                foreach (Transform c in itemsRoot)
-                    if (c != null) c.gameObject.SetActive(true);
+            if (spot == null) return;
+            _progress.Remove(spot);
+            if (!InCloseup || _activeSpot != spot) return;
+            ReleasePointer();
+            foreach (var item in _items) item.ResetItem();
+            _completed = false;
+            SubscribePointer();
         }
 
         public override void ResetForNewRun()
         {
-            base.ResetForNewRun();
-            _armed = false;
+            if (InCloseup) ExitCloseup();
+            ReleasePointer();
+            _progress.Clear();
             _activeSpot = null;
-            if (itemsRoot != null)
-                foreach (Transform c in itemsRoot)
-                    if (c != null) c.gameObject.SetActive(true);
-            if (highlight != null) highlight.SetActive(false);
+            _completed = false;
+            EnsureItems();
+            foreach (var item in _items) item.ResetItem();
+        }
+
+        protected override void OnDestroy()
+        {
+            ReleasePointer();
+            base.OnDestroy();
         }
     }
 }
+

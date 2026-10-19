@@ -5,10 +5,9 @@ using UnityEngine;
 namespace RoomDemo.Quest
 {
     /// <summary>
-    /// 收拾玩法（策划案 2.3 / S3）：桌面 / 书架两段式（用户已拍板 E 键两段式）。
+    /// 家具收拾入口与奖励结算：配置特写时按 E 进入鼠标整理玩法。
     ///
-    /// 交互：第一次 E 进入"整理模式"（高亮提示，<see cref="highlight"/> 点亮），
-    /// 第二次 E 执行收拾（隐藏收拾物、恢复状态、上报进度、播台词）。
+    /// 全部杂物归位后恢复状态、上报进度、播台词。未配置特写时保留两段式 E 键收拾。
     ///
     /// 铁律合规：
     /// - 状态恢复走 <see cref="IStatSource.Add"/>（支线唯一入口），不直接碰 PlayerStats 通道；
@@ -20,7 +19,7 @@ namespace RoomDemo.Quest
     public class TidySpot : RoomInteractable, IResettable
     {
         [Header("特写")]
-        [Tooltip("收拾特写管理器（装配菜单写入）。非空时进特写，否则回退为房间内直接收拾")]
+        [Tooltip("按 E 进入此特写，全部杂物归位后结算；留空保留房间内两段式收拾。")]
         public TidyCloseup closeup;
 
         [Header("状态恢复")]
@@ -102,7 +101,7 @@ namespace RoomDemo.Quest
             foreach (var it in _items)
                 if (it != null) it.SetActive(true);
             if (highlight != null) highlight.SetActive(false);
-            if (closeup != null) closeup.NotifyMessUp(); // 玩家正停在特写里时同步显物
+            if (closeup != null) closeup.NotifyMessUp(this);
             Services.Dialogue?.Play(new[]
             {
                 new DialogueLine { text = "……猫把刚收拾好的桌面又扒乱了。", autoAdvance = 3f }
@@ -113,35 +112,44 @@ namespace RoomDemo.Quest
         public override void Interact()
         {
             if (!canInteract) return;
-
-            if (!_armed)
+            if (closeup != null)
             {
-                // 第一段：进入整理模式，点亮高亮提示玩家"再按 E 收拾"；
-                // 若已装配收拾特写，则进入独立特写视图（仿画板，方向 A）。
-                _armed = true;
-                if (highlight != null) highlight.SetActive(true);
-                if (closeup != null) closeup.Enter(this);
+                closeup.Enter(this);
                 return;
             }
 
-            // 第二段：执行收拾（特写里也走这里）
+            if (!_armed)
+            {
+                // 没有特写的家具保留原有两段式交互。
+                _armed = true;
+                if (highlight != null) highlight.SetActive(true);
+                return;
+            }
+
+            // 无特写时的第二段：执行收拾。
             ExecuteTidy();
         }
 
-        /// <summary>执行收拾：隐藏收拾物、恢复状态、上报进度、播台词。供特写管理器调用。</summary>
-        public void ExecuteTidy()
+        /// <summary>结算一次收拾奖励；鼠标特写保留已摆好的杂物。</summary>
+        public void ExecuteTidy(bool preserveItems = false)
         {
-            foreach (var it in _items)
-                if (it != null) it.SetActive(false);
-
+            if (!canInteract) return;
             var sink = Services.Stats ?? (IStatSource)stats;
+            if (sink == null)
+            {
+                Debug.LogError("[收拾] 缺少玩家状态服务。", this);
+                return;
+            }
+            canInteract = false;
+            if (!preserveItems)
+                foreach (var it in _items)
+                    if (it != null) it.SetActive(false);
+
             sink.Add(effect, amount);
 
             if (reportId != QuestId.None) Services.Progress?.Report(reportId);
 
             if (highlight != null) highlight.SetActive(false);
-            canInteract = false;
-
             // 偶然发现（策划案 3.5）：20% 概率翻出矿泉水/零食，不消耗时间。
             // 台词并入同一次 Play——DialogueManager.Play 是替换不是排队，二次调用会吞掉前面的收拾台词。
             var allLines = new List<DialogueLine>(lines ?? new DialogueLine[0]);

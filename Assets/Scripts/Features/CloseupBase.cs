@@ -33,6 +33,7 @@ namespace RoomDemo
         public Vector3 closeupCameraOffset = new Vector3(0f, 0f, -10f);
 
         protected bool InCloseup { get; private set; }
+        protected virtual bool UseMouseCancel => true;
 
         Vector3 _roomCamPos;
         float _roomCamSize;
@@ -105,7 +106,7 @@ namespace RoomDemo
             _roomCamSize = mainCamera.orthographicSize;
         }
 
-        void FrameCamera()
+        protected virtual void FrameCamera()
         {
             if (mainCamera == null || closeupRoot == null) return;
             mainCamera.orthographicSize = closeupOrthoSize;
@@ -170,7 +171,16 @@ namespace RoomDemo
             var im = InputManager.Instance;
             if (im == null) return;
             im.Interact -= HandleInteractInput; im.Interact += HandleInteractInput;
-            im.CancelPressed -= HandleCancelInput; im.CancelPressed += HandleCancelInput;
+            if (UseMouseCancel)
+            {
+                im.CancelPressed -= HandleCancelInput;
+                im.CancelPressed += HandleCancelInput;
+            }
+            else
+            {
+                im.CancelKeyPressed -= HandleCancelInput;
+                im.CancelKeyPressed += HandleCancelInput;
+            }
             _inputSubscribed = true;
         }
 
@@ -181,6 +191,7 @@ namespace RoomDemo
             {
                 im.Interact -= HandleInteractInput;
                 im.CancelPressed -= HandleCancelInput;
+                im.CancelKeyPressed -= HandleCancelInput;
             }
             _inputSubscribed = false;
         }

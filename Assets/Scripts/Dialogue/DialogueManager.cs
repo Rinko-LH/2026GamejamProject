@@ -9,9 +9,6 @@ namespace RoomDemo
     [Serializable]
     public class DialogueLine
     {
-        [Tooltip("说话人名。留空表示独白，对话框不显示名字栏")]
-        public string speaker = "";
-
         [Tooltip("台词正文")]
         [TextArea(2, 4)]
         public string text = "";
