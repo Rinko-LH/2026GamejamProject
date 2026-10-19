@@ -1,5 +1,4 @@
 using RoomDemo.Contracts;
-using RoomDemo.Input;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -11,23 +10,16 @@ namespace RoomDemo.Ending
     /// 结算界面（S10，策划案 5.3 / 6.2）：进 Settlement 弹出的全屏面板。
     /// 内容 = 结局标题 + 收尾文案（S9 产出，同域直连）+ 本局统计
     /// （画作 n/3、专注占比、支线分项、猫捣乱、偶然发现、状态终值、用时）。
-    ///
-    /// R 重开二段式确认（D11）：首次按 R 只弹确认（空格 确认 / Esc 取消），
-    /// 确认后才经 Services.Flow.ResetRun() 重开——GameManager 已摘除 R 直连
-    /// （IGameFlow.ResetRun），R 只在这里生效，防误触。
-    ///
     /// UI 在场景层级中制作，脚本只填充本局数据、处理按钮与控制面板显隐。
     /// 默认整面板隐藏，只认 Services.Flow.StateChanged 边缘显隐。
     /// </summary>
     public class SettlementUI : MonoBehaviour, IResettable
     {
         GameObject _root;
-        TMP_Text _title, _line, _stats, _hint, _confirm;
+        TMP_Text _title, _line, _stats;
         Button _mainMenuButton;
         bool _built;
-        bool _confirming;
         bool _subscribedFlow;
-        bool _subscribedInput;
         bool _subscribedJudge;
         EndingJudge _judge;
 
@@ -50,20 +42,15 @@ namespace RoomDemo.Ending
             _title = root.Find("Title")?.GetComponent<TMP_Text>();
             _line = root.Find("Line")?.GetComponent<TMP_Text>();
             _stats = root.Find("Stats")?.GetComponent<TMP_Text>();
-            _hint = root.Find("Hint")?.GetComponent<TMP_Text>();
-            _confirm = root.Find("Confirm")?.GetComponent<TMP_Text>();
             var buttonTransform = root.Find("MainMenuButton");
             _mainMenuButton = buttonTransform != null ? buttonTransform.GetComponent<Button>() : null;
-            if (_title == null || _line == null || _stats == null || _hint == null || _confirm == null || _mainMenuButton == null)
+            if (_title == null || _line == null || _stats == null || _mainMenuButton == null)
             {
-                Debug.LogError("[结算界面] Root 下需要 Title、Line、Stats、Hint、Confirm 和 MainMenuButton 场景 UI 子物体。", this);
+                Debug.LogError("[结算界面] Root 下需要 Title、Line、Stats 和 MainMenuButton 场景 UI 子物体。", this);
                 return;
             }
             _mainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
             _mainMenuButton.onClick.AddListener(ReturnToMainMenu);
-            _hint.text = "按 R 重开一局（调试）";
-            _confirm.text = "要重开一局吗？\n空格 确认 ／ Esc 取消";
-            _confirm.gameObject.SetActive(false);
 
             _root.SetActive(false);
         }
@@ -74,7 +61,6 @@ namespace RoomDemo.Ending
         {
             Build();
             SubscribeFlow();
-            SubscribeInput();
             SubscribeJudge();
         }
 
@@ -103,30 +89,11 @@ namespace RoomDemo.Ending
             _subscribedFlow = true;
         }
 
-        void SubscribeInput()
-        {
-            if (_subscribedInput) return;
-            var im = InputManager.Instance;
-            if (im == null) return;
-            im.DebugRestart -= OnDebugRestart; im.DebugRestart += OnDebugRestart;
-            im.Confirm -= OnConfirm; im.Confirm += OnConfirm;
-            im.CancelPressed -= OnCancel; im.CancelPressed += OnCancel;
-            _subscribedInput = true;
-        }
-
         void OnDestroy()
         {
             if (Services.Flow != null) Services.Flow.StateChanged -= OnStateChanged;
             if (_judge != null) _judge.Judged -= OnJudged;
-            var im = InputManager.Instance;
-            if (im != null)
-            {
-                im.DebugRestart -= OnDebugRestart;
-                im.Confirm -= OnConfirm;
-                im.CancelPressed -= OnCancel;
-            }
             _subscribedFlow = false;
-            _subscribedInput = false;
             _subscribedJudge = false;
         }
 
@@ -141,7 +108,6 @@ namespace RoomDemo.Ending
             }
             else
             {
-                ResetConfirm();
                 if (_root != null) _root.SetActive(false);
             }
         }
@@ -189,20 +155,6 @@ namespace RoomDemo.Ending
                 $"用时：{mins} 分 {secs:D2} 秒";
         }
 
-        // ---------- R 二段式确认（D11） ----------
-
-        void OnDebugRestart()
-        {
-            var flow = Services.Flow;
-            if (flow == null || flow.State != GameFlowState.Settlement) return;
-            if (_confirming) return; // 确认态里再按 R 不重复响应
-
-            _confirming = true;
-            if (_hint != null) _hint.gameObject.SetActive(false);
-            if (_mainMenuButton != null) _mainMenuButton.gameObject.SetActive(false);
-            if (_confirm != null) _confirm.gameObject.SetActive(true);
-        }
-
         void ReturnToMainMenu()
         {
             const string mainMenuScene = "MainMenu";
@@ -214,33 +166,9 @@ namespace RoomDemo.Ending
             SceneManager.LoadScene(mainMenuScene);
         }
 
-        void OnConfirm()
-        {
-            if (!_confirming) return;
-            var flow = Services.Flow;
-            ResetConfirm();
-            if (flow == null || flow.State != GameFlowState.Settlement) return;
-            flow.ResetRun();
-        }
-
-        void OnCancel()
-        {
-            if (!_confirming) return;
-            ResetConfirm();
-        }
-
-        void ResetConfirm()
-        {
-            _confirming = false;
-            if (_hint != null) _hint.gameObject.SetActive(true);
-            if (_mainMenuButton != null) _mainMenuButton.gameObject.SetActive(true);
-            if (_confirm != null) _confirm.gameObject.SetActive(false);
-        }
-
-        /// <summary>R 重开 / 新一局：收起确认态、整面板隐藏（StateChanged 也会兜一道）。</summary>
+        /// <summary>新一局开始时隐藏结算面板。</summary>
         public void ResetForNewRun()
         {
-            ResetConfirm();
             if (_root != null) _root.SetActive(false);
         }
     }

@@ -106,8 +106,6 @@ namespace RoomDemo
                 if (im != null)
                 {
                     im.DebugFastForward -= OnDebugFastForward; im.DebugFastForward += OnDebugFastForward;
-                    // DebugRestart（R）不再直连 ResetRun（D11）：R 由 SettlementUI
-                    // 二段式确认后经 IGameFlow.ResetRun() 走，这里摘除防绕过确认。
                     _inputSubscribed = true;
                 }
             }
@@ -149,8 +147,7 @@ namespace RoomDemo
 
         public void EnterSettlement()
         {
-            // P7：结算期必须停掉正在播的对白，否则 dialogue 上下文一直锁输入，
-            // 结算面板按 R 重开不派发（须先 Esc 跳过对白才能重开）。
+            // P7：结算期停止正在播放的对白，释放对白输入上下文并保持结算界面可操作。
             if (dialogue != null) dialogue.Stop();
             if (timer != null) timer.PauseCountdown();
             int total = board != null ? board.TotalPaintings : 3;

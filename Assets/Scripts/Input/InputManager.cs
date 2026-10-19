@@ -9,8 +9,8 @@ namespace RoomDemo.Input
     /// 玩法脚本一律经此取语义化指令，不自己读 Input。
     ///
 /// - 轮询：Move / PointerScreenPos / PaintHeld（每帧值）；
-/// - 事件：Interact(E) / Confirm(空格·回车) / CancelPressed(Esc·右键) /
-///   三个调试键（Demo 专用，正式 UI 做好后连订阅一起删）；
+    /// - 事件：Interact(E) / Confirm(空格·回车) / CancelPressed(Esc·右键) /
+    ///   两个调试键（HUD 显隐、时间快进）；
 /// - 上下文栈：PushContext 期间（对话播放、UI 面板等）Move 归零、
 ///   边沿动作全部不派发——"播放台词时锁输入"就靠它（第 2 步启用）。
 ///   **例外**：阻塞上下文含 <see cref="DialogueContext"/>（对话）时，
@@ -38,10 +38,9 @@ namespace RoomDemo.Input
         [Tooltip("画画落笔的鼠标键")]
         public int paintMouseButton = 0;
 
-        [Header("调试键（Demo 验收用，正式 UI 做好后连事件一起删）")]
+        [Header("调试键（Demo 验收用）")]
         public KeyCode debugToggleHudKey = KeyCode.F1;
         public KeyCode debugFastForwardKey = KeyCode.T;
-        public KeyCode debugRestartKey = KeyCode.R;
 
         // ---------- 语义化轮询 ----------
 
@@ -70,9 +69,6 @@ namespace RoomDemo.Input
 
         /// <summary>调试：快进 60 游戏分钟（T）。</summary>
         public event Action DebugFastForward;
-
-        /// <summary>调试：结算画面重开一局（R）。</summary>
-        public event Action DebugRestart;
 
         // ---------- 上下文栈 ----------
 
@@ -138,7 +134,6 @@ namespace RoomDemo.Input
 
             if (UnityEngine.Input.GetKeyDown(debugToggleHudKey)) DebugToggleHud?.Invoke();
             if (UnityEngine.Input.GetKeyDown(debugFastForwardKey)) DebugFastForward?.Invoke();
-            if (UnityEngine.Input.GetKeyDown(debugRestartKey)) DebugRestart?.Invoke();
         }
     }
 }
