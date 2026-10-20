@@ -7,8 +7,9 @@ namespace RoomDemo.Mood
     /// <summary>
     /// 低落表现（S8，策划案 5.4）：任一状态低于阈值时，淡入 URP 全局后处理，
     /// 通过 Volume 权重降低饱和度并增加暗角；低落解除或重开时淡出。
-    /// 玩家头侧的占位气泡仍由本组件显示。移速变化由移动脚本读取
-    /// Services.Stats.IsLowMood 处理。
+    /// 移速变化由移动脚本读取 Services.Stats.IsLowMood 处理。
+    /// 玩家头侧的气泡改为手动在场景中摆好（MoodBubble 物体），本组件只负责
+    /// 低落时显隐（SetActive），不再动态生成。
     /// </summary>
     public class MoodFeedback : MonoBehaviour, IResettable
     {
@@ -16,8 +17,8 @@ namespace RoomDemo.Mood
         [Tooltip("配置了 Color Adjustments 与 Vignette 的全局 Volume")]
         public Volume moodVolume;
 
-        [Tooltip("气泡挂点（Player 的 Transform，子物体自动跟随）")]
-        public Transform bubbleAnchor;
+        [Tooltip("手动摆好的气泡物体（Player 子物体，本组件只负责低落时显隐）")]
+        public GameObject bubble;
 
         [Header("参数")]
         [Tooltip("后处理淡入/淡出时长（秒）")]
@@ -27,13 +28,6 @@ namespace RoomDemo.Mood
         [Tooltip("低落时后处理 Volume 的最大权重")]
         public float maxVolumeWeight = 1f;
 
-        [Tooltip("气泡文案（占位）")]
-        public string bubbleText = "好累……";
-
-        /// <summary>气泡压在所有场景精灵（150xx）之上、UI 之下。</summary>
-        const int OrderBubble = 15110;
-
-        GameObject _bubble;
         float _volumeWeight;
         bool _low;
         bool _built;
@@ -52,40 +46,11 @@ namespace RoomDemo.Mood
                 _volumeWeight = moodVolume.weight;
             }
 
-            if (bubbleAnchor == null) return;
-
-            var old = bubbleAnchor.Find("MoodBubble");
-            if (old != null) Object.Destroy(old.gameObject); // 防装配/重跑残留双份
-
-            var go = new GameObject("MoodBubble");
-            go.transform.SetParent(bubbleAnchor, false);
-            go.transform.localPosition = new Vector3(0.9f, 0.75f, 0f);
-            go.SetActive(false);
-
-            var sr = go.AddComponent<SpriteRenderer>();
-            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            var white = new Color32(255, 255, 255, 255);
-            tex.SetPixels32(new[] { white, white, white, white });
-            tex.Apply();
-            sr.sprite = Sprite.Create(tex, new Rect(0f, 0f, 2f, 2f), new Vector2(0.5f, 0.5f), 2f);
-            sr.color = new Color(1f, 0.97f, 0.88f); // 淡黄便签色
-            sr.sortingOrder = OrderBubble;
-            go.transform.localScale = new Vector3(1.3f, 0.62f, 1f);
-
-            var textGo = new GameObject("Text");
-            textGo.transform.SetParent(go.transform, false);
-            textGo.transform.localPosition = new Vector3(0f, 0f, -0.01f);
-            var tm = textGo.AddComponent<TextMesh>();
-            tm.text = bubbleText;
-            tm.font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 48);
-            tm.fontSize = 48;
-            tm.characterSize = 0.065f;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.color = new Color(0.30f, 0.28f, 0.32f);
-            var mr = textGo.GetComponent<MeshRenderer>();
-            if (mr != null) mr.sortingOrder = OrderBubble + 1;
-
-            _bubble = go;
+            // 手动摆好的气泡默认应为隐藏，这里同步一次初始状态。
+            if (bubble != null)
+            {
+                bubble.SetActive(_low);
+            }
         }
 
         void Update()
@@ -124,8 +89,8 @@ namespace RoomDemo.Mood
         void ApplyLow(bool low)
         {
             _low = low;
-            if (_bubble != null && _bubble.activeSelf != low)
-                _bubble.SetActive(low);
+            if (bubble != null && bubble.activeSelf != low)
+                bubble.SetActive(low);
         }
 
         void OnDestroy()
@@ -143,7 +108,7 @@ namespace RoomDemo.Mood
             _low = false;
             _volumeWeight = 0f;
             if (moodVolume != null) moodVolume.weight = 0f;
-            if (_bubble != null) _bubble.SetActive(false);
+            if (bubble != null) bubble.SetActive(false);
         }
     }
 }
