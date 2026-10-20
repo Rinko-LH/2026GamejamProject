@@ -9494,14 +9494,14 @@ MonoBehaviour:
   text: "\u55B5~"
   fontAsset: {fileID: 11400000, guid: a9eb1f164e3f7c2409de9df029a221ec, type: 2}
   fontSize: 2
-  bubbleWidth: 1.8
-  bubbleHeight: 1.1
+  bubbleWidth: 1.4
+  bubbleHeight: 1
   bubbleColor: {r: 0.91823894, g: 0.8542544, b: 0.69012296, a: 0.35}
-  textColor: {r: 0.1764706, g: 0.1764706, b: 0.1764706, a: 1}
+  textColor: {r: 0, g: 0, b: 0, a: 1}
   riseSpeed: 0.8
   riseHeight: 2
   fadeDuration: 0.5
-  startOffset: {x: 0, y: -1.5, z: 0}
+  startOffset: {x: 4, y: -1.5, z: 0}
   sortingOrder: 15110
   autoRepeat: 1
   repeatInterval: 3

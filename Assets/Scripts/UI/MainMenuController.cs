@@ -3,17 +3,19 @@ using UnityEngine.SceneManagement;
 
 namespace RoomDemo.UI
 {
-    /// <summary>主菜单按钮回调：开始玩法、打开制作人员页、退出应用。</summary>
+    /// <summary>主菜单按钮回调：开始玩法、打开玩法说明页、打开制作人员页、退出应用。</summary>
     public sealed class MainMenuController : MonoBehaviour
     {
         [SerializeField] string gameSceneName = "MainScene";
         [SerializeField] GameObject creditsPanel;
+        [SerializeField] GameObject howToPlayPanel;
 
         void Awake()
         {
             // 菜单文本已在场景中配置 TMP 字体资源；不要再添加旧版 UI.Text，
             // 因为 TMP_Text 同样是 Graphic，同一个 GameObject 不能同时拥有两者。
             if (creditsPanel != null) creditsPanel.SetActive(false);
+            if (howToPlayPanel != null) howToPlayPanel.SetActive(false);
         }
 
         public void StartGame()
@@ -34,6 +36,16 @@ namespace RoomDemo.UI
         public void HideCredits()
         {
             if (creditsPanel != null) creditsPanel.SetActive(false);
+        }
+
+        public void ShowHowToPlay()
+        {
+            if (howToPlayPanel != null) howToPlayPanel.SetActive(true);
+        }
+
+        public void HideHowToPlay()
+        {
+            if (howToPlayPanel != null) howToPlayPanel.SetActive(false);
         }
 
         public void QuitGame()
