@@ -12,7 +12,7 @@ namespace RoomDemo.EditorTools
 {
     /// <summary>Explicit, per-component Play Mode snapshots, restored with Undo on returning to Edit Mode.</summary>
     [InitializeOnLoad]
-    public static class RuntimeComponentParameters
+    public static class RuntimeSaver
     {
         const string StateKey = "RoomDemo.RuntimeComponentParameters.v1";
         const string BaselineKey = StateKey + ".baseline";
@@ -51,7 +51,7 @@ namespace RoomDemo.EditorTools
         }
         public static List<Snapshot> Pending => Load<Snapshots>(StateKey).items;
 
-        static RuntimeComponentParameters()
+        static RuntimeSaver()
         {
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
             EditorApplication.update += ApplyWhenReady;
@@ -180,7 +180,7 @@ namespace RoomDemo.EditorTools
             string id = SavedId(component, runtime);
             if (id == null || EditorUtility.IsPersistent(component))
             {
-                Debug.LogWarning("[运行时参数] 只能保留进入运行前已存在于已保存场景中的组件。临时对象、新增组件和未保存场景不支持自动恢复。", component);
+                Debug.LogWarning("[运行时参数保存工具] 只能保留进入运行前已存在于已保存场景中的组件。临时对象、新增组件和未保存场景不支持自动恢复。", component);
                 return false;
             }
             try
@@ -219,13 +219,13 @@ namespace RoomDemo.EditorTools
                 pending.Add(snapshot);
                 Store(pending);
                 int temporary = snapshot.references.Count(x => x.temporary);
-                Debug.Log($"[运行时参数] 已保存 {snapshot.label} 的当前快照。退出运行后{(AutoApply ? "自动恢复" : "可手动应用")}。" +
+                Debug.Log($"[运行时参数保存工具] 已保存 {snapshot.label} 的当前快照。退出运行后{(AutoApply ? "自动恢复" : "可手动应用")}。" +
                     (temporary > 0 ? $" {temporary} 个临时对象引用无法保留，将保留编辑模式的原引用。" : ""), component);
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogError("[运行时参数] 保存失败：" + e.Message, component);
+                Debug.LogError("[运行时参数保存工具] 保存失败：" + e.Message, component);
                 return false;
             }
         }
@@ -238,7 +238,7 @@ namespace RoomDemo.EditorTools
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
             Undo.IncrementCurrentGroup();
             int group = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName("恢复运行时组件参数");
+            Undo.SetCurrentGroupName("恢复运行时参数保存工具");
             foreach (var snapshot in Pending) Apply(snapshot);
             Undo.CollapseUndoOperations(group);
         }
@@ -249,7 +249,7 @@ namespace RoomDemo.EditorTools
             var component = Resolve(snapshot.id) as Component;
             if (component == null || component.GetType().AssemblyQualifiedName != snapshot.type)
             {
-                Debug.LogWarning("[运行时参数] 找不到原组件，请打开原场景后重试：" + snapshot.label);
+                Debug.LogWarning("[运行时参数保存工具] 找不到原组件，请打开原场景后重试：" + snapshot.label);
                 return false;
             }
             string backup = EditorJsonUtility.ToJson(component);
@@ -259,7 +259,7 @@ namespace RoomDemo.EditorTools
                 using (var serialized = new SerializedObject(component))
                     foreach (var reference in snapshot.references)
                         originalReferences[reference.path] = serialized.FindProperty(reference.path)?.objectReferenceValue;
-                Undo.RegisterCompleteObjectUndo(component, "恢复运行时组件参数");
+                Undo.RegisterCompleteObjectUndo(component, "恢复运行时参数保存工具");
                 EditorJsonUtility.FromJsonOverwrite(snapshot.json, component);
                 using (var serialized = new SerializedObject(component))
                 {
@@ -271,7 +271,7 @@ namespace RoomDemo.EditorTools
                         if (reference.temporary || (!reference.wasNull && value == null))
                         {
                             originalReferences.TryGetValue(reference.path, out value);
-                            Debug.LogWarning($"[运行时参数] {snapshot.label}.{reference.path} 的引用无法恢复，已保留原引用。", component);
+                            Debug.LogWarning($"[运行时参数保存工具] {snapshot.label}.{reference.path} 的引用无法恢复，已保留原引用。", component);
                         }
                         property.objectReferenceValue = value;
                     }
@@ -281,41 +281,42 @@ namespace RoomDemo.EditorTools
                 EditorUtility.SetDirty(component);
                 EditorSceneManager.MarkSceneDirty(component.gameObject.scene);
                 Discard(snapshot.id);
-                Debug.Log("[运行时参数] 已恢复 " + snapshot.label + "。可 Undo 撤销；请 Ctrl+S 保存场景。", component);
+                Debug.Log("[运行时参数保存工具] 已恢复 " + snapshot.label + "。可 Undo 撤销；请 Ctrl+S 保存场景。", component);
                 return true;
             }
             catch (Exception e)
             {
                 EditorJsonUtility.FromJsonOverwrite(backup, component);
-                Debug.LogError("[运行时参数] 应用失败，已还原组件；快照保留以便重试：" + e.Message, component);
+                Debug.LogError("[运行时参数保存工具] 应用失败，已还原组件；快照保留以便重试：" + e.Message, component);
                 return false;
             }
         }
     }
 
-    public class RuntimeComponentParametersWindow : EditorWindow
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(true, "RoomDemo.EditorTools", "Assembly-CSharp-Editor", "RuntimeComponentParametersWindow")]
+    public class RuntimeSaverWindow : EditorWindow
     {
         Vector2 _scroll;
-        [MenuItem("Tools/运行时组件参数")]
-        public static void Open() => GetWindow<RuntimeComponentParametersWindow>("运行时组件参数");
+        [MenuItem("Tools/运行时参数保存工具")]
+        public static void Open() => GetWindow<RuntimeSaverWindow>("运行时参数保存工具");
         void OnInspectorUpdate() => Repaint();
         void OnGUI()
         {
             EditorGUILayout.HelpBox("运行中：组件标题栏右键 → 保存运行时参数（退出后保留）。\n保存的是点击当时的快照；再次保存会覆盖。支持 Unity 可序列化参数。", MessageType.Info);
-            RuntimeComponentParameters.AutoApply = EditorGUILayout.ToggleLeft("退出运行后自动应用", RuntimeComponentParameters.AutoApply);
+            RuntimeSaver.AutoApply = EditorGUILayout.ToggleLeft("退出运行后自动应用", RuntimeSaver.AutoApply);
             EditorGUILayout.HelpBox("应用支持 Undo，随后请 Ctrl+S 保存场景。快照仅在本次编辑器会话内保留（支持脚本重载）。临时对象和运行时新增组件无法恢复。", MessageType.None);
-            var pending = RuntimeComponentParameters.Pending;
+            var pending = RuntimeSaver.Pending;
             EditorGUILayout.LabelField("待恢复组件：" + pending.Count, EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode || pending.Count == 0))
-                if (GUILayout.Button("应用全部已保存参数")) RuntimeComponentParameters.ApplyAll();
+                if (GUILayout.Button("应用全部已保存参数")) RuntimeSaver.ApplyAll();
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             foreach (var snapshot in pending)
             {
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(snapshot.label);
                 using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode))
-                    if (GUILayout.Button("应用", GUILayout.Width(48))) RuntimeComponentParameters.Apply(snapshot);
-                if (GUILayout.Button("丢弃", GUILayout.Width(48))) RuntimeComponentParameters.Discard(snapshot.id);
+                    if (GUILayout.Button("应用", GUILayout.Width(48))) RuntimeSaver.Apply(snapshot);
+                if (GUILayout.Button("丢弃", GUILayout.Width(48))) RuntimeSaver.Discard(snapshot.id);
                 EditorGUILayout.EndHorizontal();
             }
             EditorGUILayout.EndScrollView();
