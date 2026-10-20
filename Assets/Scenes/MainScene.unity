@@ -1522,7 +1522,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   fadeBlurRadius: 4
   lowColor: {r: 0.75686276, g: 0.24705882, b: 0.18431373, a: 1}
-  breathSeconds: 1.6
+  breathSeconds: 1
   minimumBreathAlpha: 0.35
 --- !u!1 &335408098
 GameObject:
@@ -7481,7 +7481,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   fadeBlurRadius: 4
   lowColor: {r: 0.75686276, g: 0.24705882, b: 0.18431373, a: 1}
-  breathSeconds: 1.6
+  breathSeconds: 1
   minimumBreathAlpha: 0.35
 --- !u!1 &1425992323
 GameObject:
@@ -11551,7 +11551,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   fadeBlurRadius: 4
   lowColor: {r: 0.75686276, g: 0.24705882, b: 0.18431373, a: 1}
-  breathSeconds: 1.6
+  breathSeconds: 1
   minimumBreathAlpha: 0.35
 --- !u!1 &2129875895
 GameObject:
