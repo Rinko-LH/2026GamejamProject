@@ -6,7 +6,7 @@ namespace RoomDemo.Mood
 {
     /// <summary>
     /// 低落表现（S8，策划案 5.4）：任一状态低于阈值时，淡入 URP 全局后处理，
-    /// 通过 Volume 权重降低饱和度并增加暗角；低落解除或重开时淡出。
+    /// 通过 Volume 权重增加暗角，保留原有画面饱和度；低落解除或重开时淡出。
     /// 移速变化由移动脚本读取 Services.Stats.IsLowMood 处理。
     /// 玩家头侧的气泡改为手动在场景中摆好（MoodBubble 物体），本组件只负责
     /// 低落时显隐（SetActive），不再动态生成。
@@ -14,7 +14,7 @@ namespace RoomDemo.Mood
     public class MoodFeedback : MonoBehaviour, IResettable
     {
         [Header("引用（装配注入）")]
-        [Tooltip("配置了 Color Adjustments 与 Vignette 的全局 Volume")]
+        [Tooltip("只配置 Vignette 暗角的全局 Volume")]
         public Volume moodVolume;
 
         [Tooltip("手动摆好的气泡物体（Player 子物体，本组件只负责低落时显隐）")]

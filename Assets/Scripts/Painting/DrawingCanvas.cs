@@ -52,7 +52,7 @@ namespace RoomDemo
         /// <summary>距离达标还剩多少秒。</summary>
         public float RemainingSeconds => Mathf.Max(0f, paintingSeconds - ElapsedSeconds);
 
-        /// <summary>计时进度 0~1，用于驱动进度条。</summary>
+        /// <summary>计时进度 0~1。</summary>
         public float TimeProgress01 => paintingSeconds <= 0f ? 1f : Mathf.Clamp01(ElapsedSeconds / paintingSeconds);
 
         /// <summary>是否已达标。达标只是标记，不锁画——玩家可以继续改。</summary>

@@ -331,11 +331,6 @@ namespace RoomDemo
             SetBoardsVisible(false);
             if (boardMarker != null) boardMarker.enabled = true;
 
-            // 清掉悬停高亮，回房间别再留金色框
-            if (boards != null)
-                foreach (var b in boards)
-                    if (b != null) b.SetHover(false);
-
             // 画板组挂回 DrawingBoard（房间内不可见，缩放无所谓）
             var container = BoardsContainer;
             if (container != null)
@@ -361,12 +356,8 @@ namespace RoomDemo
             var im = InputManager.Instance;
             if (im == null) return;
 
-            // 鼠标落在哪块画板上（不按键也能高亮）
+            // 定位鼠标下的画布。
             PaintingBoard target = FindBoardUnderMouse(im.PointerScreenPos, out Vector2 canvasPos);
-
-            if (boards != null)
-                foreach (var b in boards)
-                    if (b != null) b.SetHover(b == target);
 
             if (im.PaintHeld)
             {
@@ -430,7 +421,7 @@ namespace RoomDemo
             float totalGap = boardGap * (boards.Length - 1);
             float boardW = (visW * boardsWidthRatio - totalGap) / boards.Length;
 
-            // 高度约束：给计时条和顶部标签留出空间
+            // 高度约束：给顶部标签留出空间。
             float maxH = visH * 0.72f;
             float boardH = boardW / canvasAspect;
             if (boardH > maxH)
@@ -546,7 +537,7 @@ namespace RoomDemo
             {
                 if (b == null || b.canvasRenderer == null) continue;
 
-                // 画布顶边再往上一点，避开计时条
+                // 标签放在画布顶边上方。
                 Bounds bounds = b.canvasRenderer.bounds;
                 Vector3 top = new Vector3(bounds.center.x, bounds.max.y + 0.42f, bounds.center.z);
                 Vector3 sp = _roomCamera.WorldToScreenPoint(top);
