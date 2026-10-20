@@ -16,8 +16,12 @@ namespace RoomDemo
     {
         public float moveSpeed = 5f;
 
-        [Header("角色精灵（上 / 下左右）")]
+        [Header("角色精灵（上 / 右 / 下）")]
+        [Tooltip("向上移动时使用的角色精灵。")]
         public Sprite upSprite;
+        [Tooltip("向右移动时使用的角色精灵；向左移动时水平翻转此精灵。")]
+        public Sprite rightSprite;
+        [Tooltip("向下移动时使用的角色精灵。停止移动后保留最后朝向。")]
         public Sprite downSprite;
 
         [Header("交互范围")]
@@ -65,7 +69,7 @@ namespace RoomDemo
             if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
             {
                 FacingDirection = direction.x < 0f ? Vector2.left : Vector2.right;
-                facingSprite = downSprite;
+                facingSprite = rightSprite;
                 flipX = direction.x < 0f;
             }
             else
