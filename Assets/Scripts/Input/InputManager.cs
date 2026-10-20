@@ -68,6 +68,9 @@ namespace RoomDemo.Input
         public event Action PrimaryPointerPressed;
         public event Action SecondaryPointerPressed;
 
+        /// <summary>Esc 的暂停请求。返回 true 表示已处理，本帧不再派发取消或玩法输入。</summary>
+        public event Func<bool> PauseRequested;
+
         /// <summary>调试：显示/隐藏 HUD（F1）。</summary>
         public event Action DebugToggleHud;
 
@@ -82,6 +85,9 @@ namespace RoomDemo.Input
         /// DialogueManager 播放时压入、结束时弹出。
         /// </summary>
         public const string DialogueContext = "dialogue";
+        public const string PauseContext = "pause";
+
+        public bool IsPaused => _contexts.Contains(PauseContext);
 
         readonly HashSet<string> _contexts = new HashSet<string>();
 
@@ -91,7 +97,10 @@ namespace RoomDemo.Input
         /// <summary>压入一个封锁上下文（同名只记一次）。</summary>
         public void PushContext(string name)
         {
-            if (!string.IsNullOrEmpty(name)) _contexts.Add(name);
+            if (string.IsNullOrEmpty(name)) return;
+            _contexts.Add(name);
+            Move = Vector2.zero;
+            PaintHeld = false;
         }
 
         /// <summary>弹出上下文。</summary>
@@ -118,6 +127,19 @@ namespace RoomDemo.Input
             float rawX = UnityEngine.Input.GetAxisRaw("Horizontal");
             float rawY = UnityEngine.Input.GetAxisRaw("Vertical");
             PointerScreenPos = UnityEngine.Input.mousePosition;
+            if (UnityEngine.Input.GetKeyDown(cancelKey) && PauseRequested?.Invoke() == true)
+            {
+                Move = Vector2.zero;
+                PaintHeld = false;
+                return;
+            }
+            // 暂停优先于对白豁免，防止暂停菜单的左键同时推进背后的对白。
+            if (IsPaused)
+            {
+                Move = Vector2.zero;
+                PaintHeld = false;
+                return;
+            }
             bool blocked = IsBlocked;
 
             Move = blocked ? Vector2.zero : new Vector2(rawX, rawY);
