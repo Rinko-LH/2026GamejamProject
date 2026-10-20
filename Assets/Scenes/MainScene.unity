@@ -1645,6 +1645,7 @@ GameObject:
   - component: {fileID: 413076268}
   - component: {fileID: 413076267}
   - component: {fileID: 413076269}
+  - component: {fileID: 413076270}
   m_Layer: 0
   m_Name: "\u56FE\u6807 (1)"
   m_TagString: Untagged
@@ -1753,6 +1754,22 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &413076270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 413076265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53675c4c0cd5d8c4d87491b20b573240, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverScale: 1.08
+  transitionSeconds: 0.12
+  outlineColor: {r: 1, g: 0.68, b: 0.08, a: 1}
+  outlineWidth: 2
 --- !u!1 &418174281
 GameObject:
   m_ObjectHideFlags: 0
@@ -4652,6 +4669,7 @@ GameObject:
   - component: {fileID: 892890816}
   - component: {fileID: 892890815}
   - component: {fileID: 892890817}
+  - component: {fileID: 892890818}
   m_Layer: 0
   m_Name: "\u56FE\u6807"
   m_TagString: Untagged
@@ -4760,6 +4778,22 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &892890818
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892890813}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53675c4c0cd5d8c4d87491b20b573240, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverScale: 1.08
+  transitionSeconds: 0.12
+  outlineColor: {r: 1, g: 0.68, b: 0.08, a: 1}
+  outlineWidth: 2
 --- !u!1 &917031035
 GameObject:
   m_ObjectHideFlags: 0
@@ -5741,6 +5775,7 @@ GameObject:
   - component: {fileID: 1004913251}
   - component: {fileID: 1004913250}
   - component: {fileID: 1004913252}
+  - component: {fileID: 1004913253}
   m_Layer: 0
   m_Name: "\u56FE\u6807 (2)"
   m_TagString: Untagged
@@ -5849,6 +5884,22 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1004913253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1004913248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53675c4c0cd5d8c4d87491b20b573240, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoverScale: 1.08
+  transitionSeconds: 0.12
+  outlineColor: {r: 1, g: 0.68, b: 0.08, a: 1}
+  outlineWidth: 2
 --- !u!1 &1011449247
 GameObject:
   m_ObjectHideFlags: 0

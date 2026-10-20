@@ -11,7 +11,7 @@ namespace RoomDemo.UI
         [Header("状态与引用")]
         [Tooltip("此图标对应的状态。饥饿图标使用 Satiety（饱食度），数值越大越满。")]
         public StatKind statKind;
-        [Tooltip("始终可点击的图标按钮，不放在淡出的指示条容器中。")]
+        [Tooltip("状态图标按钮，不放在淡出的指示条容器中。对话播放期间点击无效。")]
         public Button iconButton;
         [Tooltip("指示条容器上的 CanvasGroup，只淡出底板、白条和填充条。")]
         public CanvasGroup indicatorGroup;
@@ -89,12 +89,12 @@ namespace RoomDemo.UI
         {
             if (_boundButton != iconButton)
             {
-                if (_boundButton != null) _boundButton.onClick.RemoveListener(Show);
+                if (_boundButton != null) _boundButton.onClick.RemoveListener(OnIconClicked);
                 _boundButton = iconButton;
                 if (_boundButton != null)
                 {
                     _boundButton.navigation = new Navigation { mode = Navigation.Mode.None };
-                    _boundButton.onClick.AddListener(Show);
+                    _boundButton.onClick.AddListener(OnIconClicked);
                 }
             }
             var next = Services.Stats;
@@ -124,6 +124,12 @@ namespace RoomDemo.UI
 
         float CurrentFill => _stats == null ? 0f : Mathf.Clamp01((statKind == StatKind.Water
             ? _stats.WaterValue : statKind == StatKind.Satiety ? _stats.SatietyValue : _stats.SpiritValue) / 100f);
+
+        void OnIconClicked()
+        {
+            if (Services.Dialogue != null && Services.Dialogue.IsPlaying) return;
+            Show();
+        }
 
         public void Show()
         {
@@ -213,7 +219,7 @@ namespace RoomDemo.UI
 
         void OnDisable()
         {
-            if (_boundButton != null) _boundButton.onClick.RemoveListener(Show);
+            if (_boundButton != null) _boundButton.onClick.RemoveListener(OnIconClicked);
             _boundButton = null;
             if (_stats != null) _stats.AnyChanged -= OnStatChanged;
             _stats = null;
