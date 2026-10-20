@@ -126,6 +126,16 @@ namespace RoomDemo.Input
             // 对白豁免（T2.0）：阻塞来源是对话时，确认/取消两个按下沿照常派发，
             // 否则对白自己没法推进、没法跳过。其余边沿动作仍全锁。
             bool dialogueActive = _contexts.Contains(DialogueContext);
+            if (dialogueActive)
+            {
+                // 一帧最多派发一次；结束对白的点击也不穿透到场景交互。
+                if (UnityEngine.Input.GetKeyDown(cancelKey) || UnityEngine.Input.GetMouseButtonDown(cancelMouseButton))
+                    CancelPressed?.Invoke();
+                else if (UnityEngine.Input.GetKeyDown(KeyCode.Space) || UnityEngine.Input.GetKeyDown(KeyCode.E)
+                    || UnityEngine.Input.GetMouseButtonDown(0))
+                    Confirm?.Invoke();
+                return;
+            }
             if (!blocked || dialogueActive)
             {
                 if (UnityEngine.Input.GetKeyDown(confirmKey) || UnityEngine.Input.GetKeyDown(confirmKeyAlt)) Confirm?.Invoke();

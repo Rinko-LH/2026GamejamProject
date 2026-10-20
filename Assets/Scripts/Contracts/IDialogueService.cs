@@ -9,6 +9,9 @@ namespace RoomDemo.Contracts
     public interface IDialogueService
     {
         bool IsPlaying { get; }
+        bool IsRevealing { get; }
+        void SetRevealing(bool revealing);
+        event Action RevealRequested;
         void Play(DialogueLine[] lines);
         void Stop();
 

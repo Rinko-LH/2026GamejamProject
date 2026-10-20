@@ -13,15 +13,15 @@ namespace RoomDemo
         [TextArea(2, 4)]
         public string text = "";
 
-        [Tooltip("本行无按键时多少秒后自动推进（兜底，保证不卡流程）。<=0 表示必须按键推进")]
+        [Tooltip("旧版自动推进参数，保留用于兼容已有场景。当前对话由玩家手动推进。")]
         public float autoAdvance = 3f;
     }
 
     /// <summary>
     /// 对话系统（策划案 1.5）：队列播放对白。
     ///
-    /// - Play(lines) 播一段；Confirm（空格/回车）推进下一行，Cancel（Esc/右键）跳过整段；
-    /// - 每行有 autoAdvance 秒自动推进兜底（D4：不按键也不会卡住流程）；
+    /// - 空格/E/全屏左键：打字中补全本句，完整显示后推进；Esc/右键跳过整段；
+    /// - 手动推进，不使用旧版 autoAdvance；
     /// - 播放期间压入 InputManager 的 "dialogue" 上下文：移动/交互/调试键全锁，
     ///   只放行 Confirm/Cancel（门禁豁免见 InputManager.DialogueContext）；
     /// - 事件：LineChanged（UI 订阅刷新，参数 null = 播放结束）、
@@ -39,6 +39,10 @@ namespace RoomDemo
 
         /// <summary>是否正在播放对白。</summary>
         public bool IsPlaying => _playing;
+        public bool IsRevealing { get; private set; }
+        public event Action RevealRequested;
+
+        public void SetRevealing(bool revealing) => IsRevealing = _playing && revealing;
 
         /// <summary>当前行序号（0 起）。未播放时为 -1。</summary>
         public int CurrentIndex => _index;
@@ -55,7 +59,6 @@ namespace RoomDemo
 
         bool _playing;
         int _index = -1;
-        float _lineTimer;
         bool _inputSubscribed;
 
         void Awake()
@@ -85,9 +88,6 @@ namespace RoomDemo
             var line = Current;
             if (line == null) { Stop(); return; }
 
-            _lineTimer += Time.deltaTime;
-            if (line.autoAdvance > 0f && _lineTimer >= line.autoAdvance)
-                Advance();
         }
 
         void EnsureInputSubscribed()
@@ -125,6 +125,11 @@ namespace RoomDemo
         public void Advance()
         {
             if (!_playing) return;
+            if (IsRevealing)
+            {
+                RevealRequested?.Invoke();
+                return;
+            }
             NextLine();
         }
 
@@ -138,7 +143,7 @@ namespace RoomDemo
         void NextLine()
         {
             _index++;
-            _lineTimer = 0f;
+            IsRevealing = false;
             if (lines == null || _index >= lines.Length)
             {
                 Stop();
@@ -168,7 +173,7 @@ namespace RoomDemo
             bool wasPlaying = _playing;
             _playing = false;
             _index = -1;
-            _lineTimer = 0f;
+            IsRevealing = false;
             InputManager.Instance?.PopContext(InputManager.DialogueContext);
             if (!wasPlaying) return;
             LineChanged?.Invoke(null);
