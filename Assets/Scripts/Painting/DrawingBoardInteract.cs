@@ -10,10 +10,9 @@ namespace RoomDemo
     /// 按用户确认的设计：
     /// - 进入画板是<b>桌面特写俯视</b>视角（不是第一人称平视）；
     /// - <b>需要先拿到画笔</b>才能画；
-    /// - 特写里<b>三块画板并排</b>，每块画一幅，各画各的；
+    /// - 特写里只显示中央的一张画布，按数组顺序逐幅绘画；
     /// - 完成判定是<b>计时</b>：每块画板落笔起 60 秒，画满即达标（数值重规划案）；
-    /// - 达标<b>只是标记</b>（外框变绿），不锁画、不强制切换，
-    ///   玩家可以继续改，也可以用鼠标直接换到另一块画板上画。
+    /// - 达标后由按钮手动换页，可返回上一张；全部达标后提交或退出特写进入结算。
     /// </summary>
     public class DrawingBoardInteract : MonoBehaviour, IResettable
     {
@@ -34,10 +33,14 @@ namespace RoomDemo
         public float closeupOrthoSize = 2.6f;
         [Tooltip("相机相对画板组中心的垂直偏移")]
         public Vector3 closeupCameraOffset = new Vector3(0f, 0.2f, -10f);
-        [Tooltip("三块画板合计占视野宽度的比例")]
+        [Tooltip("中央单张画布最多占视野宽度的比例")]
         public float boardsWidthRatio = 0.92f;
-        [Tooltip("画板之间的间隙（世界单位）")]
-        public float boardGap = 0.22f;
+
+        [Header("抽纸换页")]
+        [Min(0.1f), Tooltip("下一张从旧画下方抽出并叠到上面的总时长（秒）")]
+        public float pageTurnDuration = 0.9f;
+        [Tooltip("抽纸的方向和距离，分别以画布宽、高为单位；负 Y 向下")]
+        public Vector2 pagePullOffset = new Vector2(0.65f, -0.4f);
 
         [Header("找画笔")]
         public bool hasBrush;
@@ -55,6 +58,8 @@ namespace RoomDemo
         public event System.Action ExitedPaintingMode;
         /// <summary>某一块画板达标时触发，参数为画作序号（1~3）。</summary>
         public event System.Action<int> PaintingCompleted;
+        /// <summary>全部达标后主动提交，或退出特写时触发。</summary>
+        public event System.Action PaintingsSubmitted;
 
         Camera _roomCamera;
         Vector3 _roomCamPos;
@@ -62,13 +67,32 @@ namespace RoomDemo
         bool _inCloseup;
         PlayerStats _stats;
         float _paintingSeconds;
+        int _currentBoardIndex = -1;
+        PaintingBoard _outgoingPage;
+        PaintingBoard _incomingPage;
+        float _pageTurnElapsed;
+        int _incomingOrder;
+        int _incomingLayer;
+        Color _incomingColor;
+        bool _requirePointerRelease;
+        float _pageTurnDirection = 1f;
 
         // 记录进入特写前的房间状态，退出时还原
         bool _preRoomPlayerActive;
 
         static GUIStyle _labelStyle;
+        static GUIStyle _titleStyle;
 
         public bool IsPaintingMode => _inCloseup;
+        public bool IsSwitchingPage => _incomingPage != null;
+        public PaintingBoard CurrentBoard => boards != null && _currentBoardIndex >= 0 &&
+            _currentBoardIndex < boards.Length ? boards[_currentBoardIndex] : null;
+        public bool IsLastBoard => boards != null && _currentBoardIndex == boards.Length - 1;
+        public bool CanGoToPreviousBoard => _inCloseup && !IsSwitchingPage &&
+            _currentBoardIndex > 0 && IsValidBoard(_currentBoardIndex - 1);
+        public bool CanGoToNextBoard => _inCloseup && !IsSwitchingPage && CurrentBoard != null &&
+            CurrentBoard.IsDone && IsValidBoard(_currentBoardIndex + 1);
+        public bool CanSubmitPaintings => _inCloseup && !IsSwitchingPage && IsLastBoard && AllComplete;
 
         /// <summary>总幅数。</summary>
         public int TotalPaintings => boards != null ? boards.Length : 0;
@@ -193,7 +217,11 @@ namespace RoomDemo
             if (!_subscribed && boards != null && boards.Length > 0) EnsureSubscriptions();
             EnsureInputSubscribed();
 
-            if (_inCloseup) HandlePaintingInput();
+            if (_inCloseup)
+            {
+                if (IsSwitchingPage) UpdatePageTurn();
+                else HandlePaintingInput();
+            }
         }
 
         bool _inputSubscribed;
@@ -279,6 +307,9 @@ namespace RoomDemo
             }
 
             EnsureSubscriptions();
+            if (!IsValidBoard(_currentBoardIndex)) _currentBoardIndex = FindNextUnfinishedBoard();
+            if (_currentBoardIndex < 0) return;
+            _requirePointerRelease = true;
             _inCloseup = true;
             RoomInteractable.CloseupActive = true;
 
@@ -290,7 +321,7 @@ namespace RoomDemo
             }
             SetRoomVisible(false);
             if (boardMarker != null) boardMarker.enabled = false;
-            SetBoardsVisible(true);
+            ShowCurrentBoard();
 
             if (_roomCamera != null)
             {
@@ -304,7 +335,7 @@ namespace RoomDemo
                     container.localRotation = Quaternion.identity;
                 }
 
-                // 按相机视野重排三块画板
+                // 每张画布都排在中央，仅当前页可见。
                 FitBoardsToCamera();
 
                 // 相机正对画板组中心，让画面居中
@@ -320,9 +351,13 @@ namespace RoomDemo
             EnteredPaintingMode?.Invoke();
         }
 
-        public void ExitPaintingMode()
+        public void ExitPaintingMode() => ExitPaintingModeInternal(true);
+
+        void ExitPaintingModeInternal(bool submitIfComplete)
         {
             if (!_inCloseup) return;
+            CancelPageTurn();
+            LiftAllPens();
             _inCloseup = false;
             RoomInteractable.CloseupActive = false;
 
@@ -348,6 +383,25 @@ namespace RoomDemo
             if (_stats != null) _stats.SetActivity(PlayerStats.Activity.Idle);
 
             ExitedPaintingMode?.Invoke();
+            if (submitIfComplete && AllComplete) PaintingsSubmitted?.Invoke();
+        }
+
+        bool IsValidBoard(int index) => boards != null && index >= 0 && index < boards.Length &&
+            boards[index] != null && boards[index].canvas != null && boards[index].canvasRenderer != null;
+
+        public void ShowPreviousBoard()
+        {
+            if (CanGoToPreviousBoard) BeginPageTurn(boards[_currentBoardIndex - 1]);
+        }
+
+        public void ShowNextBoard()
+        {
+            if (CanGoToNextBoard) BeginPageTurn(boards[_currentBoardIndex + 1]);
+        }
+
+        public void SubmitPaintings()
+        {
+            if (CanSubmitPaintings) ExitPaintingMode();
         }
 
         void HandlePaintingInput()
@@ -355,6 +409,11 @@ namespace RoomDemo
             // 输入统一走 InputManager（1.7）；退出特写改走 CancelPressed 事件订阅
             var im = InputManager.Instance;
             if (im == null) return;
+            if (_requirePointerRelease)
+            {
+                if (!im.PaintHeld) _requirePointerRelease = false;
+                return;
+            }
 
             // 定位鼠标下的画布。
             PaintingBoard target = FindBoardUnderMouse(im.PointerScreenPos, out Vector2 canvasPos);
@@ -364,18 +423,16 @@ namespace RoomDemo
                 if (target != null)
                 {
                     target.canvas.DrawAt(canvasPos);
-                    // 落笔才计时：60 秒是实打实的作画时间，
-                    // 松开鼠标或换到别的画板，这块的计时就暂停。
-                    target.canvas.Tick(Time.deltaTime);
                     // 同一口径累计到局计数（契约 IGameFlow.PaintingSeconds）
                     _paintingSeconds += Time.deltaTime;
+                    // 先累计本帧落笔时间，再派发达标事件。
+                    target.canvas.Tick(Time.deltaTime);
                 }
+                else LiftAllPens();
             }
             else
             {
-                if (boards != null)
-                    foreach (var b in boards)
-                        if (b != null) b.canvas.LiftPen();
+                LiftAllPens();
             }
         }
 
@@ -394,15 +451,95 @@ namespace RoomDemo
                 }
             }
 
+            // 达标只解锁换页/提交，保留当前笔画，允许继续补画。
             PaintingCompleted?.Invoke(index);
             Debug.Log($"[画板] 第 {index} 幅达标（{CompletedCount}/{TotalPaintings}）");
 
             if (AllComplete)
-                Debug.Log("[画板] 三幅画全部达标（结局逻辑后续再做）");
+                Debug.Log("[画板] 全部画作达标");
+        }
+
+        int FindNextUnfinishedBoard()
+        {
+            if (boards != null)
+                for (int i = 0; i < boards.Length; i++)
+                    if (boards[i] != null && boards[i].canvas != null &&
+                        boards[i].canvasRenderer != null && !boards[i].IsDone) return i;
+            return -1;
+        }
+
+        void LiftAllPens()
+        {
+            if (boards == null) return;
+            foreach (var b in boards)
+                if (b != null && b.canvas != null) b.canvas.LiftPen();
+        }
+
+        void ShowCurrentBoard()
+        {
+            SetBoardsVisible(false);
+            if (CurrentBoard != null) CurrentBoard.SetVisible(true);
+        }
+
+        void BeginPageTurn(PaintingBoard next)
+        {
+            LiftAllPens();
+            _requirePointerRelease = true;
+            _outgoingPage = CurrentBoard;
+            _pageTurnDirection = System.Array.IndexOf(boards, next) < _currentBoardIndex ? -1f : 1f;
+            _incomingPage = next;
+            _pageTurnElapsed = 0f;
+            var renderer = next.canvasRenderer;
+            _incomingOrder = renderer.sortingOrder;
+            _incomingLayer = renderer.sortingLayerID;
+            _incomingColor = renderer.color;
+            renderer.sortingLayerID = _outgoingPage.canvasRenderer.sortingLayerID;
+            renderer.sortingOrder = _outgoingPage.canvasRenderer.sortingOrder - 1;
+            renderer.color = _incomingColor * new Color(0.82f, 0.82f, 0.82f, 1f);
+            next.SetVisible(true);
+        }
+
+        void UpdatePageTurn()
+        {
+            _pageTurnElapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(_pageTurnElapsed / Mathf.Max(0.1f, pageTurnDuration));
+            // 前半程从旧纸底下向右下抽出，后半程抬到上层并归位。
+            bool onTop = t >= 0.5f;
+            float phase = onTop ? (t - 0.5f) * 2f : t * 2f;
+            float distance = onTop ? 1f - Mathf.SmoothStep(0f, 1f, phase) : Mathf.SmoothStep(0f, 1f, phase);
+            Vector3 size = _outgoingPage.canvasRenderer.bounds.size;
+            _incomingPage.transform.localPosition = new Vector3(size.x * pagePullOffset.x * _pageTurnDirection,
+                size.y * pagePullOffset.y, 0f) * distance;
+            _incomingPage.transform.localRotation = Quaternion.Euler(0f, 0f, -6f * distance * _pageTurnDirection);
+            _incomingPage.canvasRenderer.sortingOrder = _outgoingPage.canvasRenderer.sortingOrder + (onTop ? 1 : -1);
+            _incomingPage.canvasRenderer.color = Color.Lerp(
+                _incomingColor * new Color(0.82f, 0.82f, 0.82f, 1f), _incomingColor,
+                onTop ? Mathf.Clamp01(phase * 4f) : 0f);
+            if (t < 1f) return;
+
+            _currentBoardIndex = System.Array.IndexOf(boards, _incomingPage);
+            CancelPageTurn();
+            ShowCurrentBoard();
+        }
+
+        void CancelPageTurn()
+        {
+            if (_incomingPage != null)
+            {
+                _incomingPage.transform.localPosition = Vector3.zero;
+                _incomingPage.transform.localRotation = Quaternion.identity;
+                var renderer = _incomingPage.canvasRenderer;
+                renderer.sortingOrder = _incomingOrder;
+                renderer.sortingLayerID = _incomingLayer;
+                renderer.color = _incomingColor;
+            }
+            _incomingPage = null;
+            _outgoingPage = null;
+            _pageTurnElapsed = 0f;
         }
 
         /// <summary>
-        /// 按当前相机视野重排三块画板：以画板组中心为原点一字排开，
+        /// 按当前相机视野排布单张画布，所有页共享中央位置，
         /// 尺寸同时受视野宽度和高度约束，窄屏也不会挤出画面。
         /// </summary>
         void FitBoardsToCamera()
@@ -417,9 +554,7 @@ namespace RoomDemo
             float visW = visH * aspect;
             float canvasAspect = (float)first.canvas.canvasWidth / Mathf.Max(1, first.canvas.canvasHeight);
 
-            // 宽度约束：三块 + 间隙 不超过视野宽度的 boardsWidthRatio
-            float totalGap = boardGap * (boards.Length - 1);
-            float boardW = (visW * boardsWidthRatio - totalGap) / boards.Length;
+            float boardW = visW * Mathf.Clamp(boardsWidthRatio, 0.1f, 1f);
 
             // 高度约束：给顶部标签留出空间。
             float maxH = visH * 0.72f;
@@ -430,17 +565,12 @@ namespace RoomDemo
                 boardW = boardH * canvasAspect;
             }
 
-            float pitch = boardW + boardGap;
-            // 以画板组中心为原点一字排开：第一块的中心在 -pitch*(n-1)/2，
-            // 最后一块的右端刚好落在 +totalW/2（注意别用 -totalW/2 当起点，
-            // 那样会把整组往左偏半个板宽）。
-            float startX = -pitch * (boards.Length - 1) * 0.5f;
-
             for (int i = 0; i < boards.Length; i++)
             {
                 var b = boards[i];
                 if (b == null) continue;
-                b.transform.localPosition = new Vector3(startX + pitch * i, 0f, 0f);
+                b.transform.localPosition = Vector3.zero;
+                b.transform.localRotation = Quaternion.identity;
                 b.Layout(boardW, boardH);
             }
         }
@@ -449,14 +579,10 @@ namespace RoomDemo
         PaintingBoard FindBoardUnderMouse(Vector3 screenPos, out Vector2 canvasPos)
         {
             canvasPos = Vector2.zero;
-            if (boards == null) return null;
-
-            foreach (var b in boards)
-            {
-                if (b == null || b.canvasRenderer == null || b.canvas == null) continue;
-                if (TryScreenToRenderer(screenPos, b.canvasRenderer, b.canvas, out canvasPos))
-                    return b;
-            }
+            var b = CurrentBoard;
+            if (IsSwitchingPage || b == null || b.canvasRenderer == null ||
+                !b.canvasRenderer.enabled || b.canvas == null) return null;
+            if (TryScreenToRenderer(screenPos, b.canvasRenderer, b.canvas, out canvasPos)) return b;
             return null;
         }
 
@@ -518,7 +644,7 @@ namespace RoomDemo
             room.gameObject.SetActive(visible);
         }
 
-        /// <summary>特写时在每块画板上方画一行状态文字（色块占位期的临时 UI）。</summary>
+        /// <summary>仅显示当前页的状态，换页结束后同步切换文字。</summary>
         void OnGUI()
         {
             if (!_inCloseup || boards == null || _roomCamera == null) return;
@@ -529,19 +655,28 @@ namespace RoomDemo
                 {
                     fontSize = 16,
                     fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter
+                    alignment = TextAnchor.MiddleCenter,
+                    richText = false
+                };
+            }
+            if (_titleStyle == null)
+            {
+                _titleStyle = new GUIStyle(_labelStyle)
+                {
+                    fontSize = 20,
+                    wordWrap = true
                 };
             }
 
-            foreach (var b in boards)
+            var b = CurrentBoard;
+            if (b != null && b.canvasRenderer != null)
             {
-                if (b == null || b.canvasRenderer == null) continue;
 
                 // 标签放在画布顶边上方。
                 Bounds bounds = b.canvasRenderer.bounds;
                 Vector3 top = new Vector3(bounds.center.x, bounds.max.y + 0.42f, bounds.center.z);
                 Vector3 sp = _roomCamera.WorldToScreenPoint(top);
-                if (sp.z <= 0f) continue;
+                if (sp.z <= 0f) return;
 
                 string text;
                 Color color;
@@ -569,6 +704,18 @@ namespace RoomDemo
 
                 GUI.color = color;
                 GUI.Label(rect, text, _labelStyle);
+
+                // 命题独立于绘画状态，长句自动换行，并随 CurrentBoard 一起换页。
+                float titleWidth = Mathf.Max(1f, Mathf.Min(Screen.width - 32f, 640f));
+                string title = b.DisplayTitle;
+                float titleHeight = _titleStyle.CalcHeight(new GUIContent(title), titleWidth);
+                var titleRect = new Rect(sp.x - titleWidth * 0.5f,
+                    rect.y - titleHeight - 4f, titleWidth, titleHeight);
+                GUI.color = new Color(0f, 0f, 0f, 0.7f);
+                GUI.Label(new Rect(titleRect.x + 1.5f, titleRect.y + 1.5f,
+                    titleRect.width, titleRect.height), title, _titleStyle);
+                GUI.color = Color.white;
+                GUI.Label(titleRect, title, _titleStyle);
                 GUI.color = Color.white;
             }
         }
@@ -576,15 +723,20 @@ namespace RoomDemo
         /// <summary>重置三块画板（开新局 / 调试重跑）。</summary>
         public void ResetBoards()
         {
+            CancelPageTurn();
+            LiftAllPens();
             if (boards == null) return;
             foreach (var b in boards)
                 if (b != null) b.ResetBoard();
+            _currentBoardIndex = FindNextUnfinishedBoard();
+            _requirePointerRelease = true;
+            if (_inCloseup) ShowCurrentBoard();
         }
 
         /// <summary>R 重开时整体复位（IResettable）：退特写、收画笔、清画板、计时归零。</summary>
         public void ResetForNewRun()
         {
-            if (_inCloseup) ExitPaintingMode();
+            if (_inCloseup) ExitPaintingModeInternal(false);
             hasBrush = false;
             _paintingSeconds = 0f;
             ResetBoards();

@@ -33,6 +33,7 @@ namespace RoomDemo
         float _openingTimer;
         bool _subscribed;
         bool _inputSubscribed;
+        bool _endingDay;
 
         void Awake()
         {
@@ -95,7 +96,13 @@ namespace RoomDemo
             if (!_subscribed)
             {
                 if (timer != null) { timer.DayEnded -= OnDayEnded; timer.DayEnded += OnDayEnded; }
-                if (board != null) { board.PaintingCompleted -= OnPaintingCompleted; board.PaintingCompleted += OnPaintingCompleted; }
+                if (board != null)
+                {
+                    board.PaintingCompleted -= OnPaintingCompleted;
+                    board.PaintingCompleted += OnPaintingCompleted;
+                    board.PaintingsSubmitted -= OnPaintingsSubmitted;
+                    board.PaintingsSubmitted += OnPaintingsSubmitted;
+                }
                 _subscribed = true;
             }
 
@@ -114,7 +121,11 @@ namespace RoomDemo
         void Unsubscribe()
         {
             if (timer != null) timer.DayEnded -= OnDayEnded;
-            if (board != null) board.PaintingCompleted -= OnPaintingCompleted;
+            if (board != null)
+            {
+                board.PaintingCompleted -= OnPaintingCompleted;
+                board.PaintingsSubmitted -= OnPaintingsSubmitted;
+            }
             var im = InputManager.Instance;
             if (im != null)
             {
@@ -158,11 +169,16 @@ namespace RoomDemo
         /// <summary>一天的结束入口：计时器到点或手动调试都走这里。</summary>
         public void EndDay()
         {
-            if (State == GameFlowState.Settlement) return;
+            if (State == GameFlowState.Settlement || _endingDay) return;
             // 任何入口到点结算时若还挂在画板特写里（如中途三项告急触发），
             // 先退出画板模式回房间，别把特写留进结算画面。
-            if (board != null && board.IsPaintingMode) board.ExitPaintingMode();
-            EnterSettlement();
+            _endingDay = true;
+            try
+            {
+                if (board != null && board.IsPaintingMode) board.ExitPaintingMode();
+                EnterSettlement();
+            }
+            finally { _endingDay = false; }
         }
 
         void SetState(GameFlowState next)
@@ -181,14 +197,12 @@ namespace RoomDemo
             int total = board != null ? board.TotalPaintings : 3;
             Debug.Log($"[画板] 第 {index} 幅达标（{paintingsCompleted}/{total}）");
 
-            // 策划案核心循环第 4 条：三幅全部完成即可提前结算。
-            // （不提前的话 3×60s=180s 占 480s 只有 37.5%，永远够不到专注结局
-            // 的 60% 线——数值重规划案已把这条补上，占比分母改为实际当局时长。）
-            if (board != null && board.AllComplete)
-            {
-                if (board.IsPaintingMode) board.ExitPaintingMode(); // 先回房间再结算
-                EndDay();
-            }
+            // 达标只记进度，等待玩家提交或在全部完成后退出画布。
+        }
+
+        void OnPaintingsSubmitted()
+        {
+            if (board != null && board.AllComplete) EndDay();
         }
 
         // ---------- IGameFlow（契约层 S0） ----------
