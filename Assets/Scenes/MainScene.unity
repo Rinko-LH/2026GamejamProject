@@ -604,7 +604,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canvasWidth: 512
   canvasHeight: 384
-  paintingSeconds: 10
+  paintingSeconds: 5
   lowMoodScale: 1.5
   brushRadius: 7
   inkColor: {r: 0.16, g: 0.18, b: 0.24, a: 1}
@@ -3332,7 +3332,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canvasWidth: 512
   canvasHeight: 384
-  paintingSeconds: 10
+  paintingSeconds: 5
   lowMoodScale: 1.5
   brushRadius: 7
   inkColor: {r: 0.16, g: 0.18, b: 0.24, a: 1}
@@ -3870,7 +3870,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canvasWidth: 512
   canvasHeight: 384
-  paintingSeconds: 10
+  paintingSeconds: 5
   lowMoodScale: 1.5
   brushRadius: 7
   inkColor: {r: 0.16, g: 0.18, b: 0.24, a: 1}
@@ -12695,7 +12695,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1946230725}
-  - component: {fileID: 1946230726}
   m_Layer: 0
   m_Name: PaintingBoards
   m_TagString: Untagged
@@ -12721,30 +12720,6 @@ Transform:
   - {fileID: 55073384}
   m_Father: {fileID: 1663953457}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1946230726
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1946230724}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d7771f79e75f5374ca3c8c12dad14328, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cat: {fileID: 251285182}
-  boards:
-  - {fileID: 646193148}
-  - {fileID: 599969832}
-  - {fileID: 55073384}
-  minInterval: 6
-  maxInterval: 14
-  minStay: 1.2
-  maxStay: 3.5
-  overlaySortingOrder: 15200
-  randomXRange: 0.6
-  yOffset: 0.4
 --- !u!1 &1952091718
 GameObject:
   m_ObjectHideFlags: 0

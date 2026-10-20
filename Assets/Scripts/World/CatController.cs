@@ -17,9 +17,7 @@ namespace RoomDemo.World
     /// 防恶心设计（用户拍板 D12）：打回后 10s CD、每局上限 3 次、
     /// 对白播放中屏蔽（对白期输入锁定，K10）。
     ///
-    /// 说明：猫挂在 RoomWorld 下，进画板特写时随房间整体
-    /// SetActive(false) 一起隐藏，Update 一并冻结——特写里没有猫
-    /// 反而更干净，退出特写自动恢复。
+    /// 绘画特写期间隐藏猫并冻结游走和打乱；退出后恢复房间表现。
     /// </summary>
     public class CatController : MonoBehaviour, IResettable
     {
@@ -68,9 +66,17 @@ namespace RoomDemo.World
         Vector3 _homePos;
         Quaternion _homeRot;
         Vector3 _homeScale;
+        DrawingBoardInteract _drawingBoard;
+        Renderer[] _renderers;
+        bool[] _rendererEnabled;
+        bool _hiddenForPainting;
+        float _paintingPauseStarted;
 
         void Awake()
         {
+            _drawingBoard = FindObjectOfType<DrawingBoardInteract>(true);
+            _renderers = GetComponentsInChildren<Renderer>(true);
+            _rendererEnabled = new bool[_renderers.Length];
             _homePos = transform.position;
             _homeRot = transform.rotation;
             _homeScale = transform.localScale;
@@ -87,6 +93,9 @@ namespace RoomDemo.World
 
         void Update()
         {
+            bool painting = _drawingBoard != null && _drawingBoard.IsPaintingMode;
+            SetHiddenForPainting(painting);
+            if (painting) return;
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
@@ -120,6 +129,26 @@ namespace RoomDemo.World
                 StartMischief();
             }
         }
+
+        void SetHiddenForPainting(bool hidden)
+        {
+            if (_hiddenForPainting == hidden || _renderers == null) return;
+            _hiddenForPainting = hidden;
+            if (hidden) _paintingPauseStarted = Time.time;
+            else _nextMischiefTime += Time.time - _paintingPauseStarted;
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                if (_renderers[i] == null) continue;
+                if (hidden)
+                {
+                    _rendererEnabled[i] = _renderers[i].enabled;
+                    _renderers[i].enabled = false;
+                }
+                else _renderers[i].enabled = _rendererEnabled[i];
+            }
+        }
+
+        void OnDisable() => SetHiddenForPainting(false);
 
         void StartWander()
         {
@@ -196,6 +225,7 @@ namespace RoomDemo.World
         /// <summary>R 重开：次数清零、回窝、复位计时与表现态。</summary>
         public void ResetForNewRun()
         {
+            SetHiddenForPainting(false);
             _mischiefCount = 0;
             _state = State.Idle;
             _stateTimer = Random.Range(1f, 3f);
