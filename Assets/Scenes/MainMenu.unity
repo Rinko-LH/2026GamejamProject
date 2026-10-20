@@ -1217,8 +1217,8 @@ MonoBehaviour:
   - {fileID: 21527982}
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4291291381
-  m_fontColor: {r: 0.96, g: 0.91, b: 0.78, a: 1}
+    rgba: 4281874488
+  m_fontColor: {r: 0.21960786, g: 0.21960786, b: 0.21960786, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1331,7 +1331,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gameSceneName: MainScene
   creditsPanel: {fileID: 201455994}
-  menuFont: {fileID: 12800000, guid: 00a26077491c6e44181f315bfe921b4d, type: 3}
 --- !u!1 &1016247663
 GameObject:
   m_ObjectHideFlags: 0
@@ -1444,8 +1443,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 298, y: 167}
-  m_SizeDelta: {x: 660, y: 70}
+  m_AnchoredPosition: {x: 380.78, y: 102}
+  m_SizeDelta: {x: 761.553, y: -158.493}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1072008191
 MonoBehaviour:
@@ -1476,8 +1475,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4289443619
-  m_fontColor: {r: 0.13866144, g: 0.7169812, b: 0.67018425, a: 1}
+    rgba: 4280229903
+  m_fontColor: {r: 0.058146406, g: 0.12578613, b: 0.12044614, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1494,8 +1493,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 35
-  m_fontSizeBase: 35
+  m_fontSize: 39
+  m_fontSizeBase: 39
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -2180,7 +2179,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -231}
+  m_AnchoredPosition: {x: 0, y: -236}
   m_SizeDelta: {x: 520, y: 360}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1471183833
@@ -2196,7 +2195,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.085, g: 0.13, b: 0.19, a: 0}
+  m_Color: {r: 0.6989438, g: 0.73318356, b: 0.7798742, a: 0}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
