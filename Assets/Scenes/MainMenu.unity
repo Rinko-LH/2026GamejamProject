@@ -1909,9 +1909,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "WASD / \u65B9\u5411\u952E  \xB7  \u79FB\u52A8\nE \u952E  \xB7  \u4E92\u52A8\uFF08\u62FE\u53D6\u3001\u5403\u559D\u3001\u8FDB\u753B\u677F\uFF09\n\u9F20\u6807\u5DE6\u952E 
-    \xB7  \u753B\u753B\u843D\u7B14\n\u7A7A\u683C / \u56DE\u8F66  \xB7  \u63A8\u8FDB\u5BF9\u8BDD\nEsc
-    / \u53F3\u952E  \xB7  \u53D6\u6D88 / \u9000\u51FA\n\n\u6C34\u5206\u3001\u9971\u98DF\u3001\u7CBE\u795E\u4F1A\u968F\u65F6\u95F4\u4E0B\u964D\n"
+  m_text: "WASD / \u65B9\u5411\u952E  \xB7  \u79FB\u52A8\nE \u952E  \xB7  \u4E92\u52A8\n\u9F20\u6807\u5DE6\u952E 
+    \xB7  \u753B\u753B\u843D\u7B14\n\u9F20\u6807\u53F3\u952E  \xB7  \u65CB\u8F6C\u4E66\u672C\n\u7A7A\u683C
+    / E\u952E  \xB7  \u63A8\u8FDB\u5BF9\u8BDD\nEsc  \xB7  \u9000\u51FA\n\n\u6C34\u5206\u3001\u9971\u98DF\u3001\u7CBE\u795E\u503C\u4F1A\u968F\u65F6\u95F4\u4E0B\u964D\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a9eb1f164e3f7c2409de9df029a221ec, type: 2}
   m_sharedMaterial: {fileID: 1428439779}
